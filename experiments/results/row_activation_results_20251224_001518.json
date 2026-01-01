@@ -1,0 +1,527 @@
+[
+  {
+    "name": "tiny",
+    "macs": 9216,
+    "params": {
+      "N": 1,
+      "K": 8,
+      "C": 8,
+      "P": 4,
+      "Q": 4,
+      "R": 3,
+      "S": 3,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 1.0,
+      "weight": 1.0,
+      "output": 1.0,
+      "total": 3.0
+    },
+    "trace": {
+      "total": 3,
+      "input": 1,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 1,
+        "16": 1,
+        "32": 1
+      }
+    },
+    "error_pct": 0.0
+  },
+  {
+    "name": "small",
+    "macs": 147456,
+    "params": {
+      "N": 1,
+      "K": 16,
+      "C": 16,
+      "P": 8,
+      "Q": 8,
+      "R": 3,
+      "S": 3,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 16.0,
+      "weight": 3.0,
+      "output": 1.0,
+      "total": 20.0
+    },
+    "trace": {
+      "total": 21,
+      "input": 2,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 2,
+        "16": 3,
+        "32": 16
+      }
+    },
+    "error_pct": 4.761904761904762
+  },
+  {
+    "name": "medium",
+    "macs": 1806336,
+    "params": {
+      "N": 1,
+      "K": 32,
+      "C": 32,
+      "P": 14,
+      "Q": 14,
+      "R": 3,
+      "S": 3,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 504.0,
+      "weight": 9.0,
+      "output": 7.0,
+      "total": 520.0
+    },
+    "trace": {
+      "total": 560,
+      "input": 56,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 56,
+        "16": 63,
+        "32": 441
+      }
+    },
+    "error_pct": 7.142857142857142
+  },
+  {
+    "name": "ResNet-L1",
+    "macs": 3687936,
+    "params": {
+      "N": 1,
+      "K": 32,
+      "C": 3,
+      "P": 28,
+      "Q": 28,
+      "R": 7,
+      "S": 7,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 1372.0,
+      "weight": 5.0,
+      "output": 356.0,
+      "total": 1733.0
+    },
+    "trace": {
+      "total": 559,
+      "input": 161,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 161,
+        "16": 226,
+        "32": 172
+      }
+    },
+    "error_pct": 210.01788908765656
+  },
+  {
+    "name": "ResNet-L2",
+    "macs": 3612672,
+    "params": {
+      "N": 1,
+      "K": 64,
+      "C": 32,
+      "P": 14,
+      "Q": 14,
+      "R": 3,
+      "S": 3,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 448.0,
+      "weight": 18.0,
+      "output": 13.0,
+      "total": 479.0
+    },
+    "trace": {
+      "total": 560,
+      "input": 336,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 336,
+        "16": 126,
+        "32": 98
+      }
+    },
+    "error_pct": 14.464285714285715
+  },
+  {
+    "name": "ResNet-L3",
+    "macs": 3612672,
+    "params": {
+      "N": 1,
+      "K": 128,
+      "C": 64,
+      "P": 7,
+      "Q": 7,
+      "R": 3,
+      "S": 3,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 896.0,
+      "weight": 72.0,
+      "output": 7.0,
+      "total": 975.0
+    },
+    "trace": {
+      "total": 952,
+      "input": 441,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 441,
+        "16": 504,
+        "32": 7
+      }
+    },
+    "error_pct": 2.415966386554622
+  },
+  {
+    "name": "VGG-L1",
+    "macs": 2709504,
+    "params": {
+      "N": 1,
+      "K": 32,
+      "C": 3,
+      "P": 56,
+      "Q": 56,
+      "R": 3,
+      "S": 3,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 633.0,
+      "weight": 1.0,
+      "output": 276.0,
+      "total": 910.0
+    },
+    "trace": {
+      "total": 515,
+      "input": 138,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 138,
+        "16": 83,
+        "32": 294
+      }
+    },
+    "error_pct": 76.69902912621359
+  },
+  {
+    "name": "VGG-L2",
+    "macs": 14450688,
+    "params": {
+      "N": 1,
+      "K": 64,
+      "C": 32,
+      "P": 28,
+      "Q": 28,
+      "R": 3,
+      "S": 3,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 1792.0,
+      "weight": 18.0,
+      "output": 49.0,
+      "total": 1859.0
+    },
+    "trace": {
+      "total": 3780,
+      "input": 1176,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 1176,
+        "16": 252,
+        "32": 2352
+      }
+    },
+    "error_pct": 50.82010582010582
+  },
+  {
+    "name": "VGG-L3",
+    "macs": 14450688,
+    "params": {
+      "N": 1,
+      "K": 128,
+      "C": 64,
+      "P": 14,
+      "Q": 14,
+      "R": 3,
+      "S": 3,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 112.0,
+      "weight": 72.0,
+      "output": 25.0,
+      "total": 209.0
+    },
+    "trace": {
+      "total": 2968,
+      "input": 1764,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 1764,
+        "16": 1008,
+        "32": 196
+      }
+    },
+    "error_pct": 92.95822102425876
+  },
+  {
+    "name": "MobileNet-L1",
+    "macs": 401408,
+    "params": {
+      "N": 1,
+      "K": 32,
+      "C": 16,
+      "P": 28,
+      "Q": 28,
+      "R": 1,
+      "S": 1,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 98.0,
+      "weight": 1.0,
+      "output": 49.0,
+      "total": 148.0
+    },
+    "trace": {
+      "total": 87,
+      "input": 13,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 13,
+        "16": 49,
+        "32": 25
+      }
+    },
+    "error_pct": 70.11494252873564
+  },
+  {
+    "name": "MobileNet-L2",
+    "macs": 401408,
+    "params": {
+      "N": 1,
+      "K": 64,
+      "C": 32,
+      "P": 14,
+      "Q": 14,
+      "R": 1,
+      "S": 1,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 112.0,
+      "weight": 2.0,
+      "output": 91.0,
+      "total": 205.0
+    },
+    "trace": {
+      "total": 130,
+      "input": 25,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 25,
+        "16": 56,
+        "32": 49
+      }
+    },
+    "error_pct": 57.692307692307686
+  },
+  {
+    "name": "MobileNet-L3",
+    "macs": 401408,
+    "params": {
+      "N": 1,
+      "K": 128,
+      "C": 64,
+      "P": 7,
+      "Q": 7,
+      "R": 1,
+      "S": 1,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 7.0,
+      "weight": 8.0,
+      "output": 7.0,
+      "total": 22.0
+    },
+    "trace": {
+      "total": 112,
+      "input": 49,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 49,
+        "16": 56,
+        "32": 7
+      }
+    },
+    "error_pct": 80.35714285714286
+  },
+  {
+    "name": "Batch-N1",
+    "macs": 3612672,
+    "params": {
+      "N": 1,
+      "K": 64,
+      "C": 32,
+      "P": 14,
+      "Q": 14,
+      "R": 3,
+      "S": 3,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 448.0,
+      "weight": 18.0,
+      "output": 13.0,
+      "total": 479.0
+    },
+    "trace": {
+      "total": 560,
+      "input": 336,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 336,
+        "16": 126,
+        "32": 98
+      }
+    },
+    "error_pct": 14.464285714285715
+  },
+  {
+    "name": "Batch-N2",
+    "macs": 7225344,
+    "params": {
+      "N": 2,
+      "K": 64,
+      "C": 32,
+      "P": 14,
+      "Q": 14,
+      "R": 3,
+      "S": 3,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 2688.0,
+      "weight": 18.0,
+      "output": 56.0,
+      "total": 2762.0
+    },
+    "trace": {
+      "total": 1890,
+      "input": 588,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 588,
+        "16": 126,
+        "32": 1176
+      }
+    },
+    "error_pct": 46.13756613756614
+  },
+  {
+    "name": "Batch-N4",
+    "macs": 14450688,
+    "params": {
+      "N": 4,
+      "K": 64,
+      "C": 32,
+      "P": 14,
+      "Q": 14,
+      "R": 3,
+      "S": 3,
+      "stride": [
+        1,
+        1
+      ]
+    },
+    "ilp": {
+      "input": 1792.0,
+      "weight": 18.0,
+      "output": 49.0,
+      "total": 1859.0
+    },
+    "trace": {
+      "total": 3724,
+      "input": 1176,
+      "weight": 0,
+      "output": 0,
+      "per_bank": {
+        "0": 1176,
+        "16": 1764,
+        "32": 784
+      }
+    },
+    "error_pct": 50.08055853920516
+  }
+]

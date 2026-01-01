@@ -8,3 +8,36 @@ eggs/
 
 # Editor related.
 settings.json
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Cache
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+
+# Build
+build/
+dist/
+
+# External projects (should be separate repos)
+UniNDP/
+OptiPIM/
+Interstellar-CNN-scheduler/
+nn_dataflow/
+
+# Temporary files
+verify_result/
+*.log
+maxpool.txt
+
+# IDE
+.idea/
+.vscode/
+*.swp
+# Large trace files
+validation_output/*.txt
+experiments/results/traces/*.txt

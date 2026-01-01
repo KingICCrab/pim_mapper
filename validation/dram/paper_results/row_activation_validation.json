@@ -1,0 +1,74 @@
+[
+  {
+    "workload": "tiny",
+    "dimensions": {
+      "R": 3,
+      "S": 3,
+      "P": 4,
+      "Q": 4,
+      "C": 8,
+      "K": 4,
+      "N": 1
+    },
+    "layout": {
+      "input": "row_aligned",
+      "weight": "sequential",
+      "output": "sequential"
+    },
+    "tile_info": {
+      "block_h": 6,
+      "block_w": 6
+    },
+    "ilp": {
+      "input": 1.0000000000001512,
+      "weight": 1.0000000000001512,
+      "output": 1.0000000000001512,
+      "total": 3.000000000000454
+    },
+    "trace": {
+      "input_unique_rows": 1,
+      "input_row_switches": 1,
+      "weight_unique_rows": 1,
+      "weight_row_switches": 1,
+      "output_unique_rows": 1,
+      "output_row_switches": 1
+    },
+    "trace_total_lines": 4544
+  },
+  {
+    "workload": "small",
+    "dimensions": {
+      "R": 3,
+      "S": 3,
+      "P": 8,
+      "Q": 8,
+      "C": 16,
+      "K": 16,
+      "N": 1
+    },
+    "layout": {
+      "input": "row_aligned",
+      "weight": "sequential",
+      "output": "sequential"
+    },
+    "tile_info": {
+      "block_h": 10,
+      "block_w": 10
+    },
+    "ilp": {
+      "input": 15.999999999999998,
+      "weight": 3.0000000009619745,
+      "output": 1.0000000000108993,
+      "total": 20.00000000097287
+    },
+    "trace": {
+      "input_unique_rows": 16,
+      "input_row_switches": 16,
+      "weight_unique_rows": 3,
+      "weight_row_switches": 3,
+      "output_unique_rows": 1,
+      "output_row_switches": 1
+    },
+    "trace_total_lines": 36672
+  }
+]

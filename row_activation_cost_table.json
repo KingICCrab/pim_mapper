@@ -1,0 +1,56 @@
+[
+  {
+    "P": 16,
+    "Q": 16,
+    "C": 32,
+    "order": "P-Q-C",
+    "row_acts": 2640.0,
+    "best_block_h": 18,
+    "best_block_w": 18
+  },
+  {
+    "P": 16,
+    "Q": 16,
+    "C": 32,
+    "order": "P-C-Q",
+    "row_acts": 165.0,
+    "best_block_h": 18,
+    "best_block_w": 18
+  },
+  {
+    "P": 16,
+    "Q": 16,
+    "C": 32,
+    "order": "Q-P-C",
+    "row_acts": 2640.0,
+    "best_block_h": 18,
+    "best_block_w": 18
+  },
+  {
+    "P": 16,
+    "Q": 16,
+    "C": 32,
+    "order": "Q-C-P",
+    "row_acts": 176.0,
+    "best_block_h": 18,
+    "best_block_w": 18
+  },
+  {
+    "P": 16,
+    "Q": 16,
+    "C": 32,
+    "order": "C-P-Q",
+    "row_acts": 11.0,
+    "best_block_h": 18,
+    "best_block_w": 18
+  },
+  {
+    "P": 16,
+    "Q": 16,
+    "C": 32,
+    "order": "C-Q-P",
+    "row_acts": 281.0,
+    "best_block_h": 18,
+    "best_block_w": 18
+  }
+]

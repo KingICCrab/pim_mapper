@@ -1,0 +1,293 @@
+================================================================================
+Workload: tiny
+================================================================================
+
+【Workload 参数】
+  Dimensions: R=3, S=3, P=4, Q=4, C=8, K=8, N=1
+  Stride: (1, 1)
+  Dilation: (1, 1)
+  Total MACs: 9216
+
+【Tile Sizes (xb 变量)】
+  xb[w, m, s, j, i] = 1 表示维度 j 在 memory level m 的 tile factor
+
+  PE (level 0):
+    Temporal: R=3, S=3, P=1, Q=2, C=1, K=1, N=1
+    H-spatial: R=1, S=1, P=4, Q=2, C=1, K=1, N=1
+    W-spatial: R=1, S=1, P=1, Q=1, C=1, K=8, N=1
+    internal: R=1, S=1, P=1, Q=1, C=1, K=1, N=1
+
+  GlobalBuffer (level 1):
+    Temporal: R=1, S=1, P=1, Q=1, C=1, K=1, N=1
+
+  RowBuffer (level 2):
+    Temporal: R=1, S=1, P=1, Q=1, C=8, K=1, N=1
+
+  DRAM (level 3):
+    Temporal: R=1, S=1, P=1, Q=1, C=1, K=1, N=1
+
+【Loop Permutation (xp 变量)】
+  xp[w, m, p, j] = 1 表示 permutation level p 选择了维度 j
+  PE: R -> S -> Q (outermost -> innermost)
+  RowBuffer: C (outermost -> innermost)
+
+【Data Layout (Input)】
+  H divisors: [1, 2, 3, 6]
+  W divisors: [1, 2, 3, 6]
+  Selected block_h: 6
+  Selected block_w: 6
+  Selected layout: row_aligned
+
+【Row Activation 关键变量】
+  (macs = 9216, macs_scale_factor = 1.063794)
+  (activation_latency = 25.0 cycles)
+
+  【INPUT (t_id=0)】
+    log_reuse_penalty = 0.000000
+    reuse_penalty = 1.000000
+    row_acts_row_aligned = 1.000000
+    row_acts_seq = 128.000000
+    input_block_crossing_acts = 0.000000
+    selected_ibc_count = 0.000000
+    total_row_acts = 1.000000
+    dram_crossing_seq (layout cond) = 0.000000
+    row_aligned_acts (layout cond) = 1.000000
+    row_acts_scaled = 1.063794 (actual: 1.00 acts)
+    row_acts_cycles = 29.786220 (actual: 28.00 cycles)
+
+  【WEIGHT (t_id=1)】
+    log_reuse_penalty = 0.000000
+    reuse_penalty = 1.000000
+    row_acts_row_aligned = 1.000000
+    row_acts_seq = 1.000000
+    total_row_acts = 1.000000
+    dram_crossing_seq (layout cond) = 1.000000
+    row_aligned_acts (layout cond) = 0.000000
+    row_acts_scaled = 1.063794 (actual: 1.00 acts)
+    row_acts_cycles = 29.786220 (actual: 28.00 cycles)
+
+  【OUTPUT (t_id=2)】
+    log_reuse_penalty = 0.000000
+    reuse_penalty = 1.000000
+    row_acts_row_aligned = 1.000000
+    row_acts_seq = 1.000000
+    total_row_acts = 1.000000
+    dram_crossing_seq (layout cond) = 1.000000
+    row_aligned_acts (layout cond) = 0.000000
+    row_acts_scaled = 1.063794 (actual: 1.00 acts)
+    row_acts_cycles = 29.786220 (actual: 28.00 cycles)
+
+  【DRAM Latency Per Datatype】
+    V_dram_latency_input = 48.934504 (actual: 46.00 cycles)
+    V_dram_latency_weight = 68.082789 (actual: 64.00 cycles)
+    V_dram_latency_output = 38.296569 (actual: 36.00 cycles)
+
+  【DRAM Total Latency (max of three)】
+    V_dram_latency = 68.082789 (actual: 64.00 cycles)
+
+  【Memory Reads at RowBuffer】
+    MEM_READS_0_2_0 (input) = 306.372549 (actual: 288.00 reads)
+    MEM_READS_0_2_1 (weight) = 612.745098 (actual: 576.00 reads)
+    MEM_READS_0_2_2 (output) = 136.165577 (actual: 128.00 reads)
+
+  【Final Latency】
+    LATENCY_0 = 153.186275 (actual: 144.00 cycles)
+    COMPUTE_CYCLES_0 = 153.186275 (actual: 144.00 cycles)
+    COMPUTE_CYCLES_0 = 153.186275 (actual: 144.00 cycles)
+
+================================================================================
+Workload: small
+================================================================================
+
+【Workload 参数】
+  Dimensions: R=3, S=3, P=14, Q=14, C=32, K=32, N=1
+  Stride: (1, 1)
+  Dilation: (1, 1)
+  Total MACs: 1806336
+
+【Tile Sizes (xb 变量)】
+  xb[w, m, s, j, i] = 1 表示维度 j 在 memory level m 的 tile factor
+
+  PE (level 0):
+    Temporal: R=1, S=1, P=1, Q=1, C=1, K=4, N=1
+    H-spatial: R=1, S=1, P=1, Q=2, C=4, K=1, N=1
+    W-spatial: R=1, S=1, P=1, Q=1, C=1, K=8, N=1
+    internal: R=1, S=1, P=1, Q=1, C=1, K=1, N=1
+
+  GlobalBuffer (level 1):
+    Temporal: R=1, S=1, P=1, Q=1, C=1, K=1, N=1
+
+  RowBuffer (level 2):
+    Temporal: R=1, S=1, P=14, Q=1, C=1, K=1, N=1
+
+  DRAM (level 3):
+    Temporal: R=3, S=3, P=1, Q=7, C=8, K=1, N=1
+
+【Loop Permutation (xp 变量)】
+  xp[w, m, p, j] = 1 表示 permutation level p 选择了维度 j
+  PE: K (outermost -> innermost)
+  RowBuffer: P (outermost -> innermost)
+  DRAM: R -> C -> S -> Q (outermost -> innermost)
+
+【Data Layout (Input)】
+  H divisors: [1, 2, 4, 8, 16]
+  W divisors: [1, 2, 4, 8, 16]
+  Selected block_h: 4
+  Selected block_w: 16
+  Selected layout: row_aligned
+
+【Row Activation 关键变量】
+  (macs = 1806336, macs_scale_factor = 0.005428)
+  (activation_latency = 25.0 cycles)
+
+  【INPUT (t_id=0)】
+    log_reuse_penalty = 0.000000
+    reuse_penalty = 1.000000
+    row_acts_row_aligned = 504.000000
+    row_acts_seq = 6272.000000
+    input_block_crossing_acts = 0.000000
+    selected_ibc_count = 0.000000
+    total_row_acts = 504.000000
+    dram_crossing_seq (layout cond) = 0.000000
+    row_aligned_acts (layout cond) = 504.000000
+    row_acts_scaled = 2.735469 (actual: 504.00 acts)
+    row_acts_cycles = 76.593137 (actual: 14112.00 cycles)
+
+  【WEIGHT (t_id=1)】
+    log_reuse_penalty = 1.945910
+    reuse_penalty = 7.000000
+    row_acts_row_aligned = 504.000000
+    row_acts_seq = 9.000000
+    total_row_acts = 9.000000
+    dram_crossing_seq (layout cond) = 9.000000
+    row_aligned_acts (layout cond) = 0.000000
+    row_acts_scaled = 0.048848 (actual: 9.00 acts)
+    row_acts_cycles = 1.367735 (actual: 252.00 cycles)
+
+  【OUTPUT (t_id=2)】
+    log_reuse_penalty = 0.000000
+    reuse_penalty = 1.000000
+    row_acts_row_aligned = 7.000000
+    row_acts_seq = 7.000000
+    total_row_acts = 7.000000
+    dram_crossing_seq (layout cond) = 7.000000
+    row_aligned_acts (layout cond) = 0.000000
+    row_acts_scaled = 0.037993 (actual: 7.00 acts)
+    row_acts_cycles = 1.063794 (actual: 196.00 cycles)
+
+  【DRAM Latency Per Datatype】
+    V_dram_latency_input = 95.741422 (actual: 17640.00 cycles)
+    V_dram_latency_weight = 23.251488 (actual: 4284.00 cycles)
+    V_dram_latency_output = 154.250068 (actual: 28420.00 cycles)
+
+  【DRAM Total Latency (max of three)】
+    V_dram_latency = 154.250068 (actual: 28420.00 cycles)
+
+  【Memory Reads at RowBuffer】
+    MEM_READS_0_2_0 (input) = 306.372549 (actual: 56448.00 reads)
+    MEM_READS_0_2_1 (weight) = 350.140056 (actual: 64512.00 reads)
+    MEM_READS_0_2_2 (output) = 2450.980392 (actual: 451584.00 reads)
+
+  【Final Latency】
+    LATENCY_0 = 154.250068 (actual: 28420.00 cycles)
+    COMPUTE_CYCLES_0 = 153.186275 (actual: 28224.00 cycles)
+    COMPUTE_CYCLES_0 = 153.186275 (actual: 28224.00 cycles)
+
+================================================================================
+Workload: medium_1x1
+================================================================================
+
+【Workload 参数】
+  Dimensions: R=1, S=1, P=14, Q=14, C=64, K=64, N=1
+  Stride: (1, 1)
+  Dilation: (1, 1)
+  Total MACs: 802816
+
+【Tile Sizes (xb 变量)】
+  xb[w, m, s, j, i] = 1 表示维度 j 在 memory level m 的 tile factor
+
+  PE (level 0):
+    Temporal: R=1, S=1, P=1, Q=1, C=1, K=1, N=1
+    H-spatial: R=1, S=1, P=1, Q=1, C=1, K=8, N=1
+    W-spatial: R=1, S=1, P=1, Q=1, C=8, K=1, N=1
+    internal: R=1, S=1, P=1, Q=1, C=1, K=1, N=1
+
+  GlobalBuffer (level 1):
+    Temporal: R=1, S=1, P=1, Q=7, C=1, K=1, N=1
+
+  RowBuffer (level 2):
+    Temporal: R=1, S=1, P=1, Q=1, C=8, K=1, N=1
+
+  DRAM (level 3):
+    Temporal: R=1, S=1, P=14, Q=2, C=1, K=8, N=1
+
+【Loop Permutation (xp 变量)】
+  xp[w, m, p, j] = 1 表示 permutation level p 选择了维度 j
+  GlobalBuffer: Q (outermost -> innermost)
+  RowBuffer: C (outermost -> innermost)
+  DRAM: P -> Q -> K (outermost -> innermost)
+
+【Data Layout (Input)】
+  H divisors: [1, 2, 7, 14]
+  W divisors: [1, 2, 7, 14]
+  Selected block_h: 14
+  Selected block_w: 14
+  Selected layout: row_aligned
+
+【Row Activation 关键变量】
+  (macs = 802816, macs_scale_factor = 0.012212)
+  (activation_latency = 25.0 cycles)
+
+  【INPUT (t_id=0)】
+    log_reuse_penalty = 2.079442
+    reuse_penalty = 8.000000
+    row_acts_row_aligned = 224.000000
+    row_acts_seq = 12544.000000
+    input_block_crossing_acts = 0.000000
+    selected_ibc_count = 0.000000
+    total_row_acts = 224.000000
+    dram_crossing_seq (layout cond) = 0.000000
+    row_aligned_acts (layout cond) = 224.000000
+    row_acts_scaled = 2.735469 (actual: 224.00 acts)
+    row_acts_cycles = 76.593137 (actual: 6272.00 cycles)
+
+  【WEIGHT (t_id=1)】
+    log_reuse_penalty = 0.000000
+    reuse_penalty = 1.000000
+    row_acts_row_aligned = 8.000000
+    row_acts_seq = 4.000000
+    total_row_acts = 4.000000
+    dram_crossing_seq (layout cond) = 4.000000
+    row_aligned_acts (layout cond) = 0.000000
+    row_acts_scaled = 0.048848 (actual: 4.00 acts)
+    row_acts_cycles = 1.367735 (actual: 112.00 cycles)
+
+  【OUTPUT (t_id=2)】
+    log_reuse_penalty = 0.000000
+    reuse_penalty = 1.000000
+    row_acts_row_aligned = 224.000000
+    row_acts_seq = 25.000000
+    total_row_acts = 25.000000
+    dram_crossing_seq (layout cond) = 25.000000
+    row_aligned_acts (layout cond) = 0.000000
+    row_acts_scaled = 0.305298 (actual: 25.00 acts)
+    row_acts_cycles = 8.548341 (actual: 700.00 cycles)
+
+  【DRAM Latency Per Datatype】
+    V_dram_latency_input = 153.186275 (actual: 12544.00 cycles)
+    V_dram_latency_weight = 88.902749 (actual: 7280.00 cycles)
+    V_dram_latency_output = 18.122483 (actual: 1484.00 cycles)
+
+  【DRAM Total Latency (max of three)】
+    V_dram_latency = 153.186275 (actual: 12544.00 cycles)
+
+  【Memory Reads at RowBuffer】
+    MEM_READS_0_2_0 (input) = 1225.490196 (actual: 100352.00 reads)
+    MEM_READS_0_2_1 (weight) = 1400.560224 (actual: 114688.00 reads)
+    MEM_READS_0_2_2 (output) = 153.186275 (actual: 12544.00 reads)
+
+  【Final Latency】
+    LATENCY_0 = 153.186275 (actual: 12544.00 cycles)
+    COMPUTE_CYCLES_0 = 153.186275 (actual: 12544.00 cycles)
+    COMPUTE_CYCLES_0 = 153.186275 (actual: 12544.00 cycles)
+

@@ -1,0 +1,969 @@
+====================================================================================================
+DETAILED DEBUG INFO FOR 'ResNet-L1' WORKLOAD
+====================================================================================================
+
+====================================================================================================
+1. WORKLOAD CONFIGURATION
+====================================================================================================
+  Name: ResNet-L1
+  Dimensions: R=7, S=7, P=56, Q=56, C=3, K=64, N=1
+  Bounds: [7, 7, 56, 56, 3, 64, 1]
+  MACs: 29503488
+  Stride: (1, 1)
+  Dilation: (1, 1)
+
+  Tensor Sizes:
+    Input:  N=1 × C=3 × H=62 × W=62 = 11532 elements
+    Weight: K=64 × C=3 × R=7 × S=7 = 9408 elements
+    Output: N=1 × K=64 × P=56 × Q=56 = 200704 elements
+
+  Relevancy Matrix O[dim][tensor] (1=relevant, 0=irrelevant):
+    Dim      Input    Weight   Output  
+    R        1        1        0       
+    S        1        1        0       
+    P        1        0        1       
+    Q        1        0        1       
+    C        1        1        0       
+    K        0        1        1       
+    N        1        0        1       
+
+  Divisors per dimension:
+    R: [1, 7]
+    S: [1, 7]
+    P: [1, 2, 4, 7, 8, 14, 28, 56]
+    Q: [1, 2, 4, 7, 8, 14, 28, 56]
+    C: [1, 3]
+    K: [1, 2, 4, 8, 16, 32, 64]
+    N: [1]
+
+====================================================================================================
+2. OPTIMIZER RESULT
+====================================================================================================
+
+  Solver Status: optimal
+  Solve Time: 1.68s
+
+====================================================================================================
+3. MAPPING DETAILS
+====================================================================================================
+
+  Layout:
+    Input:  row_aligned
+    Weight: sequential
+    Output: sequential
+
+  Tile Info:
+    block_h: 31
+    block_w: 31
+
+  Loop Bounds (per memory level):
+  Memory Hierarchy: Level 0=PE, Level 1=GlobalBuffer, Level 2=RowBuffer, Level 3=LocalDRAM
+
+    Level 0:
+      H: {'R': 7, 'K': 2}
+      W: {'P': 4, 'Q': 4}
+      Internal: (all 1s)
+      temporal: {'S': 7, 'K': 2}
+
+    Level 1:
+      spatial: (all 1s)
+      temporal: {'Q': 2}
+
+    Level 2:
+      spatial: (all 1s)
+      temporal: {'K': 4}
+
+    Level 3:
+      spatial: (all 1s)
+      temporal: {'P': 14, 'Q': 7, 'C': 3, 'K': 4}
+
+  Permutation (per memory level, inner to outer):
+    Level 0: S -> K
+    Level 1: Q
+    Level 2: K
+    Level 3: K -> Q -> P -> C
+
+  Tile Sizes (cumulative up to each level):
+    Level 0: {'S': 7, 'K': 2}
+    Level 1: {'S': 7, 'Q': 2, 'K': 2}
+    Level 2: {'S': 7, 'Q': 2, 'K': 8}
+    Level 3: {'S': 7, 'P': 14, 'Q': 14, 'C': 3, 'K': 32}
+
+====================================================================================================
+4. DRAM LEVEL ANALYSIS (Level 2 + Level 3)
+====================================================================================================
+
+  DRAM Level Factors (Level 2 × Level 3):
+    R: 1
+    S: 1
+    P: 14
+    Q: 7
+    C: 3
+    K: 16
+    N: 1
+
+  Reuse Penalty per Tensor (irrelevant DRAM factors):
+    Input: irrelevant dims = ['K'], penalty = 16
+    Weight: irrelevant dims = ['P', 'Q', 'N'], penalty = 98
+    Output: irrelevant dims = ['R', 'S', 'C'], penalty = 3
+
+  Expected Unique Row Activations (simplified):
+    For row_aligned: total_tiles = Π(DRAM factors)
+    Total DRAM tiles: 4704
+
+====================================================================================================
+5. ILP ROW ACTIVATION PREDICTIONS
+====================================================================================================
+
+  ILP Predicted Row Activations:
+    Input:  1182.0000
+    Weight: 900.3750
+    Output: 588.0000
+    Total:  2670.3750
+
+====================================================================================================
+5.1 ILP VARIABLE VALUES
+====================================================================================================
+
+  xp[m=3] - Permutation at DRAM level (which dim at which position):
+    Position 2: K
+    Position 3: Q
+    Position 4: P
+    Position 6: C
+
+  xb[m=3, s=1] - DRAM temporal bounds:
+    R: divisor[0] = 1
+    S: divisor[0] = 1
+    P: divisor[5] = 14
+    Q: divisor[3] = 7
+    C: divisor[1] = 3
+    K: divisor[2] = 4
+    N: divisor[0] = 1
+
+  xr[m=2, m_=3] - Relevant inner loop exists at position p:
+
+    Input:
+      Position 0: xr = 0
+      Position 1: xr = 1
+      Position 2: xr = 1
+      Position 3: xr = 1
+      Position 4: xr = 1
+      Position 5: xr = 1
+      Position 6: xr = 1
+
+    Weight:
+      Position 0: xr = 0
+      Position 1: xr = 1
+      Position 2: xr = 1
+      Position 3: xr = 1
+      Position 4: xr = 1
+      Position 5: xr = 1
+      Position 6: xr = 1
+
+    Output:
+      Position 0: xr = 0
+      Position 1: xr = 0
+      Position 2: xr = 1
+      Position 3: xr = 1
+      Position 4: xr = 1
+      Position 5: xr = 1
+      Position 6: xr = 1
+
+  xj[m=2, m_=3] - Dimension j has inner loop for tensor:
+
+    Input (relevant dims: ['R', 'S', 'P', 'Q', 'C', 'N']):
+      R: xj = 0 (relevant)
+      S: xj = 0 (relevant)
+      P: xj = 1 (relevant)
+      Q: xj = 1 (relevant)
+      C: xj = 1 (relevant)
+      K: xj = 1 (irrelevant)
+      N: xj = 0 (relevant)
+
+    Weight (relevant dims: ['R', 'S', 'C', 'K']):
+      R: xj = 0 (relevant)
+      S: xj = 0 (relevant)
+      P: xj = 1 (irrelevant)
+      Q: xj = 1 (irrelevant)
+      C: xj = 1 (relevant)
+      K: xj = 1 (relevant)
+      N: xj = 0 (irrelevant)
+
+    Output (relevant dims: ['P', 'Q', 'K', 'N']):
+      R: xj = 0 (irrelevant)
+      S: xj = 0 (irrelevant)
+      P: xj = 1 (relevant)
+      Q: xj = 1 (relevant)
+      C: xj = 1 (irrelevant)
+      K: xj = 1 (relevant)
+      N: xj = 0 (relevant)
+
+  Manual row_acts_aligned calculation (for verification):
+    Input: P=14 × Q=7 × C=3 × K=4 = 1176
+    Weight: P=14 × Q=7 × C=3 × K=4 = 1176
+    Output: P=14 × Q=7 × C=3 × K=4 = 1176
+
+====================================================================================================
+5.2 DETAILED ROW ACTIVATION ILP VARIABLES
+====================================================================================================
+
+  ============================================================
+  Tensor: Input
+  ============================================================
+
+    2. Row Acts (Row-Aligned mode): 1176.0000
+       (Π {all dims with xj=1} bound_j)
+
+    4. Outer Irrelevant Product: 16.0000
+       (Π {outer irrelevant dims with xj=1} bound_j)
+
+    5. Row Acts (Sequential final): 9408.0000
+       (base_row_acts × outer_irr_product)
+
+    6. Sequential Part (conditional): 0.0000
+       ((1 - row_aligned) × row_acts_seq)
+
+    7. Row-Aligned Part (conditional): 1176.0000
+       (row_aligned × row_acts_row_aligned)
+
+    8. Input Block Crossing Acts: 4.0000
+       (2 × selected_count × reuse_penalty)
+       - Selected IBC Count: 2.0000
+       - aux_ibc_rp (selected_count × reuse_penalty): 2.0000
+
+    9. Total Row Acts: 1182.0000
+       (seq_part + aligned_part + block_crossing)
+
+    10. Scaled Row Acts: 0.3928
+        (total_row_acts × macs_scale_factor)
+
+    11. Row Acts Cycles: 9.8194
+        (scaled_acts × activation_latency)
+
+  ============================================================
+  Tensor: Weight
+  ============================================================
+
+    2. Row Acts (Row-Aligned mode): 1176.0000
+       (Π {all dims with xj=1} bound_j)
+
+    3. Base Row Acts (Sequential): 9.1875
+       (non_crossing_acts + 2 × crossing_count × reuse_penalty)
+
+    4. Outer Irrelevant Product: 98.0000
+       (Π {outer irrelevant dims with xj=1} bound_j)
+
+    5. Row Acts (Sequential final): 900.3750
+       (base_row_acts × outer_irr_product)
+
+    6. Sequential Part (conditional): 900.3750
+       ((1 - row_aligned) × row_acts_seq)
+
+    7. Row-Aligned Part (conditional): 0.0000
+       (row_aligned × row_acts_row_aligned)
+
+    9. Total Row Acts: 900.3750
+       (seq_part + aligned_part + block_crossing)
+
+    10. Scaled Row Acts: 0.2992
+        (total_row_acts × macs_scale_factor)
+
+    11. Row Acts Cycles: 7.4798
+        (scaled_acts × activation_latency)
+
+  ============================================================
+  Tensor: Output
+  ============================================================
+
+    2. Row Acts (Row-Aligned mode): 1176.0000
+       (Π {all dims with xj=1} bound_j)
+
+    3. Base Row Acts (Sequential): 196.0000
+       (non_crossing_acts + 2 × crossing_count × reuse_penalty)
+
+    4. Outer Irrelevant Product: 3.0000
+       (Π {outer irrelevant dims with xj=1} bound_j)
+
+    5. Row Acts (Sequential final): 588.0000
+       (base_row_acts × outer_irr_product)
+
+    6. Sequential Part (conditional): 588.0000
+       ((1 - row_aligned) × row_acts_seq)
+
+    7. Row-Aligned Part (conditional): 0.0000
+       (row_aligned × row_acts_row_aligned)
+
+    9. Total Row Acts: 588.0000
+       (seq_part + aligned_part + block_crossing)
+
+    10. Scaled Row Acts: 0.1954
+        (total_row_acts × macs_scale_factor)
+
+    11. Row Acts Cycles: 4.8848
+        (scaled_acts × activation_latency)
+
+  ============================================================
+  Layout Choices
+  ============================================================
+    Input: row_aligned
+    Weight: sequential
+    Output: sequential
+
+====================================================================================================
+5.5 ADDRESS CALCULATION DETAILS
+====================================================================================================
+
+  Buffer Tile (Level 0+1):
+    R: 7
+    S: 7
+    P: 4
+    Q: 8
+    K: 4
+
+  DRAM Loop Structure (Level 2+3, outer to inner):
+    Loops iterate using TILE INDEX (0, 1, 2, ...), NOT element coordinates
+    Element coord = tile_index × tile_stride (computed at access time)
+    [0] Level 3, C: for tile_idx in range(3)
+         tile_stride=1 → elem_coord = tile_idx × 1
+    [1] Level 3, P: for tile_idx in range(14)
+         tile_stride=4 → elem_coord = tile_idx × 4
+    [2] Level 3, Q: for tile_idx in range(7)
+         tile_stride=8 → elem_coord = tile_idx × 8
+    [3] Level 3, K: for tile_idx in range(4)
+         tile_stride=16 → elem_coord = tile_idx × 16
+    [4] Level 2, K: for tile_idx in range(4)
+         tile_stride=4 → elem_coord = tile_idx × 4
+
+  ======================================================================
+  DEBUG: INPUT STRIDE CALCULATION DETAILS
+  ======================================================================
+    input_loop_order = [(3, 4), (3, 2), (3, 3)]
+    input_l3_dims_in_perm = [(3, 4), (3, 2), (3, 3)]
+    Level 3 factors: P_l3=14, Q_l3=7, C_l3=3, N_l3=1
+    input_aligned_tile_size = 1024
+    input_l3_tile_counts = {2: 14, 3: 7, 4: 3, 6: 1}
+
+    Stride calculation process:
+      Initial stride = input_aligned_tile_size = 1024
+
+      Step 1: Process dims in permutation (reversed):
+        dim=Q: stride=1024, count=7
+        dim=P: stride=7168, count=14
+        dim=C: stride=100352, count=3
+
+      Step 2: Process remaining dims:
+        dim=N: stride=301056, count=1
+
+    Final input_strides from layout_info:
+      (L2, P): 31
+      (L2, Q): 1
+      (L2, C): 961
+      (L2, N): 961
+      (L3, P): 7168
+      (L3, Q): 1024
+      (L3, C): 100352
+      (L3, N): 301056
+  ======================================================================
+
+  Block Configuration:
+    block_h: 31 (data layout)
+    block_w: 31 (data layout)
+    block_size: 961
+    num_blocks_h: 2
+    num_blocks_w: 2
+    row_size (elements): 1024
+
+  Input Access Tile Configuration:
+    H_per_tile: 10 (access tile)
+    W_per_tile: 14 (access tile)
+    C_per_tile: 1
+    input_dram_tile_size: 140 bytes
+    input_aligned_tile_size: 1024 bytes (row_aligned)
+    DRAM factors: P_l3=14, Q_l3=7, C_l3=3, N_l3=1
+
+  Input Address Calculation:
+    Layout: row_aligned
+    Strides (Level 3 = between DRAM tiles, Level 2 = within tile):
+      (L2, P): 31
+      (L2, Q): 1
+      (L2, C): 961
+      (L2, N): 961
+      (L3, P): 7168
+      (L3, Q): 1024
+      (L3, C): 100352
+      (L3, N): 301056
+
+  Weight Address Calculation:
+    Layout: sequential
+    Buffer Tile Size: 196 (K=4 × C=1 × R=7 × S=7)
+    Strides:
+      (L2, R): 7
+      (L2, S): 1
+      (L2, C): 49
+      (L2, K): 49
+      (L3, R): 784
+      (L3, S): 784
+      (L3, C): 3136
+      (L3, K): 784
+
+  Output Address Calculation:
+    Layout: sequential
+    Buffer Tile Size: 128 (N=1 × K=4 × P=4 × Q=8)
+    Strides:
+      (L2, P): 8
+      (L2, Q): 1
+      (L2, K): 32
+      (L2, N): 32
+      (L3, P): 14336
+      (L3, Q): 2048
+      (L3, K): 512
+      (L3, N): 512
+
+  Base Addresses:
+    Input:  0x00000000 (Bank 0)
+    Weight: 0x01000000 (Bank 1)
+    Output: 0x02000000 (Bank 2)
+
+====================================================================================================
+6. TRACE GENERATION DETAILS
+====================================================================================================
+
+  DRAM Config:
+    row_buffer_bytes: 1024
+    num_banks: 4
+    num_rows: 16384
+    element_size: 1
+    bank_size: 16777216 bytes (16 MB)
+
+====================================================================================================
+6.1 INPUT ADDRESS CALCULATION DEBUG
+====================================================================================================
+
+  First 100 Input accesses (detailed):
+    idx |   h   w | h_blk w_blk | h_in w_in |   block_base  l2_base   offset |         addr |   row   col
+  -----------------------------------------------------------------------------------------------
+      0 |   0   0 |     0     0 |    0    0 |            0        0        0 | 0x00000000 |     0     0
+      1 |   0   1 |     0     0 |    0    1 |            0        0        1 | 0x00000001 |     0     1
+      2 |   0   2 |     0     0 |    0    2 |            0        0        2 | 0x00000002 |     0     2
+      3 |   0   3 |     0     0 |    0    3 |            0        0        3 | 0x00000003 |     0     3
+      4 |   0   4 |     0     0 |    0    4 |            0        0        4 | 0x00000004 |     0     4
+      5 |   0   5 |     0     0 |    0    5 |            0        0        5 | 0x00000005 |     0     5
+      6 |   0   6 |     0     0 |    0    6 |            0        0        6 | 0x00000006 |     0     6
+      7 |   0   7 |     0     0 |    0    7 |            0        0        7 | 0x00000007 |     0     7
+      8 |   0   8 |     0     0 |    0    8 |            0        0        8 | 0x00000008 |     0     8
+      9 |   0   9 |     0     0 |    0    9 |            0        0        9 | 0x00000009 |     0     9
+     10 |   0  10 |     0     0 |    0   10 |            0        0       10 | 0x0000000A |     0    10
+     11 |   0  11 |     0     0 |    0   11 |            0        0       11 | 0x0000000B |     0    11
+     12 |   0  12 |     0     0 |    0   12 |            0        0       12 | 0x0000000C |     0    12
+     13 |   0  13 |     0     0 |    0   13 |            0        0       13 | 0x0000000D |     0    13
+     14 |   1   0 |     0     0 |    1    0 |            0        0       31 | 0x0000001F |     0    31
+     15 |   1   1 |     0     0 |    1    1 |            0        0       32 | 0x00000020 |     0    32
+     16 |   1   2 |     0     0 |    1    2 |            0        0       33 | 0x00000021 |     0    33
+     17 |   1   3 |     0     0 |    1    3 |            0        0       34 | 0x00000022 |     0    34
+     18 |   1   4 |     0     0 |    1    4 |            0        0       35 | 0x00000023 |     0    35
+     19 |   1   5 |     0     0 |    1    5 |            0        0       36 | 0x00000024 |     0    36
+     20 |   1   6 |     0     0 |    1    6 |            0        0       37 | 0x00000025 |     0    37
+     21 |   1   7 |     0     0 |    1    7 |            0        0       38 | 0x00000026 |     0    38
+     22 |   1   8 |     0     0 |    1    8 |            0        0       39 | 0x00000027 |     0    39
+     23 |   1   9 |     0     0 |    1    9 |            0        0       40 | 0x00000028 |     0    40
+     24 |   1  10 |     0     0 |    1   10 |            0        0       41 | 0x00000029 |     0    41
+     25 |   1  11 |     0     0 |    1   11 |            0        0       42 | 0x0000002A |     0    42
+     26 |   1  12 |     0     0 |    1   12 |            0        0       43 | 0x0000002B |     0    43
+     27 |   1  13 |     0     0 |    1   13 |            0        0       44 | 0x0000002C |     0    44
+     28 |   2   0 |     0     0 |    2    0 |            0        0       62 | 0x0000003E |     0    62
+     29 |   2   1 |     0     0 |    2    1 |            0        0       63 | 0x0000003F |     0    63
+     30 |   2   2 |     0     0 |    2    2 |            0        0       64 | 0x00000040 |     0    64
+     31 |   2   3 |     0     0 |    2    3 |            0        0       65 | 0x00000041 |     0    65
+     32 |   2   4 |     0     0 |    2    4 |            0        0       66 | 0x00000042 |     0    66
+     33 |   2   5 |     0     0 |    2    5 |            0        0       67 | 0x00000043 |     0    67
+     34 |   2   6 |     0     0 |    2    6 |            0        0       68 | 0x00000044 |     0    68
+     35 |   2   7 |     0     0 |    2    7 |            0        0       69 | 0x00000045 |     0    69
+     36 |   2   8 |     0     0 |    2    8 |            0        0       70 | 0x00000046 |     0    70
+     37 |   2   9 |     0     0 |    2    9 |            0        0       71 | 0x00000047 |     0    71
+     38 |   2  10 |     0     0 |    2   10 |            0        0       72 | 0x00000048 |     0    72
+     39 |   2  11 |     0     0 |    2   11 |            0        0       73 | 0x00000049 |     0    73
+     40 |   2  12 |     0     0 |    2   12 |            0        0       74 | 0x0000004A |     0    74
+     41 |   2  13 |     0     0 |    2   13 |            0        0       75 | 0x0000004B |     0    75
+     42 |   3   0 |     0     0 |    3    0 |            0        0       93 | 0x0000005D |     0    93
+     43 |   3   1 |     0     0 |    3    1 |            0        0       94 | 0x0000005E |     0    94
+     44 |   3   2 |     0     0 |    3    2 |            0        0       95 | 0x0000005F |     0    95
+     45 |   3   3 |     0     0 |    3    3 |            0        0       96 | 0x00000060 |     0    96
+     46 |   3   4 |     0     0 |    3    4 |            0        0       97 | 0x00000061 |     0    97
+     47 |   3   5 |     0     0 |    3    5 |            0        0       98 | 0x00000062 |     0    98
+     48 |   3   6 |     0     0 |    3    6 |            0        0       99 | 0x00000063 |     0    99
+     49 |   3   7 |     0     0 |    3    7 |            0        0      100 | 0x00000064 |     0   100
+     50 |   3   8 |     0     0 |    3    8 |            0        0      101 | 0x00000065 |     0   101
+     51 |   3   9 |     0     0 |    3    9 |            0        0      102 | 0x00000066 |     0   102
+     52 |   3  10 |     0     0 |    3   10 |            0        0      103 | 0x00000067 |     0   103
+     53 |   3  11 |     0     0 |    3   11 |            0        0      104 | 0x00000068 |     0   104
+     54 |   3  12 |     0     0 |    3   12 |            0        0      105 | 0x00000069 |     0   105
+     55 |   3  13 |     0     0 |    3   13 |            0        0      106 | 0x0000006A |     0   106
+     56 |   4   0 |     0     0 |    4    0 |            0        0      124 | 0x0000007C |     0   124
+     57 |   4   1 |     0     0 |    4    1 |            0        0      125 | 0x0000007D |     0   125
+     58 |   4   2 |     0     0 |    4    2 |            0        0      126 | 0x0000007E |     0   126
+     59 |   4   3 |     0     0 |    4    3 |            0        0      127 | 0x0000007F |     0   127
+     60 |   4   4 |     0     0 |    4    4 |            0        0      128 | 0x00000080 |     0   128
+     61 |   4   5 |     0     0 |    4    5 |            0        0      129 | 0x00000081 |     0   129
+     62 |   4   6 |     0     0 |    4    6 |            0        0      130 | 0x00000082 |     0   130
+     63 |   4   7 |     0     0 |    4    7 |            0        0      131 | 0x00000083 |     0   131
+     64 |   4   8 |     0     0 |    4    8 |            0        0      132 | 0x00000084 |     0   132
+     65 |   4   9 |     0     0 |    4    9 |            0        0      133 | 0x00000085 |     0   133
+     66 |   4  10 |     0     0 |    4   10 |            0        0      134 | 0x00000086 |     0   134
+     67 |   4  11 |     0     0 |    4   11 |            0        0      135 | 0x00000087 |     0   135
+     68 |   4  12 |     0     0 |    4   12 |            0        0      136 | 0x00000088 |     0   136
+     69 |   4  13 |     0     0 |    4   13 |            0        0      137 | 0x00000089 |     0   137
+     70 |   5   0 |     0     0 |    5    0 |            0        0      155 | 0x0000009B |     0   155
+     71 |   5   1 |     0     0 |    5    1 |            0        0      156 | 0x0000009C |     0   156
+     72 |   5   2 |     0     0 |    5    2 |            0        0      157 | 0x0000009D |     0   157
+     73 |   5   3 |     0     0 |    5    3 |            0        0      158 | 0x0000009E |     0   158
+     74 |   5   4 |     0     0 |    5    4 |            0        0      159 | 0x0000009F |     0   159
+     75 |   5   5 |     0     0 |    5    5 |            0        0      160 | 0x000000A0 |     0   160
+     76 |   5   6 |     0     0 |    5    6 |            0        0      161 | 0x000000A1 |     0   161
+     77 |   5   7 |     0     0 |    5    7 |            0        0      162 | 0x000000A2 |     0   162
+     78 |   5   8 |     0     0 |    5    8 |            0        0      163 | 0x000000A3 |     0   163
+     79 |   5   9 |     0     0 |    5    9 |            0        0      164 | 0x000000A4 |     0   164
+     80 |   5  10 |     0     0 |    5   10 |            0        0      165 | 0x000000A5 |     0   165
+     81 |   5  11 |     0     0 |    5   11 |            0        0      166 | 0x000000A6 |     0   166
+     82 |   5  12 |     0     0 |    5   12 |            0        0      167 | 0x000000A7 |     0   167
+     83 |   5  13 |     0     0 |    5   13 |            0        0      168 | 0x000000A8 |     0   168
+     84 |   6   0 |     0     0 |    6    0 |            0        0      186 | 0x000000BA |     0   186
+     85 |   6   1 |     0     0 |    6    1 |            0        0      187 | 0x000000BB |     0   187
+     86 |   6   2 |     0     0 |    6    2 |            0        0      188 | 0x000000BC |     0   188
+     87 |   6   3 |     0     0 |    6    3 |            0        0      189 | 0x000000BD |     0   189
+     88 |   6   4 |     0     0 |    6    4 |            0        0      190 | 0x000000BE |     0   190
+     89 |   6   5 |     0     0 |    6    5 |            0        0      191 | 0x000000BF |     0   191
+     90 |   6   6 |     0     0 |    6    6 |            0        0      192 | 0x000000C0 |     0   192
+     91 |   6   7 |     0     0 |    6    7 |            0        0      193 | 0x000000C1 |     0   193
+     92 |   6   8 |     0     0 |    6    8 |            0        0      194 | 0x000000C2 |     0   194
+     93 |   6   9 |     0     0 |    6    9 |            0        0      195 | 0x000000C3 |     0   195
+     94 |   6  10 |     0     0 |    6   10 |            0        0      196 | 0x000000C4 |     0   196
+     95 |   6  11 |     0     0 |    6   11 |            0        0      197 | 0x000000C5 |     0   197
+     96 |   6  12 |     0     0 |    6   12 |            0        0      198 | 0x000000C6 |     0   198
+     97 |   6  13 |     0     0 |    6   13 |            0        0      199 | 0x000000C7 |     0   199
+     98 |   7   0 |     0     0 |    7    0 |            0        0      217 | 0x000000D9 |     0   217
+     99 |   7   1 |     0     0 |    7    1 |            0        0      218 | 0x000000DA |     0   218
+
+  ROW SWITCH ANALYSIS:
+    Row switches in first 200 Input accesses: 0
+
+  W BOUNDARY CROSSING DEBUG (w=30 or w=31):
+     idx |   h   w | w_range    | h_blk w_blk | h_in w_in |   block_base   offset |         addr |   row
+  ----------------------------------------------------------------------------------------------------
+     426 |   0  30 | [24,38)    |     0     0 |    0   30 |            0       30 | 0x0000001E |     0
+     427 |   0  31 | [24,38)    |     0     1 |    0    0 |         1024        0 | 0x00000400 |     1 <-- ROW SWITCH
+     440 |   1  30 | [24,38)    |     0     0 |    1   30 |            0       61 | 0x0000003D |     0 <-- ROW SWITCH
+     441 |   1  31 | [24,38)    |     0     1 |    1    0 |         1024       31 | 0x0000041F |     1 <-- ROW SWITCH
+     454 |   2  30 | [24,38)    |     0     0 |    2   30 |            0       92 | 0x0000005C |     0 <-- ROW SWITCH
+     455 |   2  31 | [24,38)    |     0     1 |    2    0 |         1024       62 | 0x0000043E |     1 <-- ROW SWITCH
+     468 |   3  30 | [24,38)    |     0     0 |    3   30 |            0      123 | 0x0000007B |     0 <-- ROW SWITCH
+     469 |   3  31 | [24,38)    |     0     1 |    3    0 |         1024       93 | 0x0000045D |     1 <-- ROW SWITCH
+     482 |   4  30 | [24,38)    |     0     0 |    4   30 |            0      154 | 0x0000009A |     0 <-- ROW SWITCH
+     483 |   4  31 | [24,38)    |     0     1 |    4    0 |         1024      124 | 0x0000047C |     1 <-- ROW SWITCH
+     496 |   5  30 | [24,38)    |     0     0 |    5   30 |            0      185 | 0x000000B9 |     0 <-- ROW SWITCH
+     497 |   5  31 | [24,38)    |     0     1 |    5    0 |         1024      155 | 0x0000049B |     1 <-- ROW SWITCH
+     510 |   6  30 | [24,38)    |     0     0 |    6   30 |            0      216 | 0x000000D8 |     0 <-- ROW SWITCH
+     511 |   6  31 | [24,38)    |     0     1 |    6    0 |         1024      186 | 0x000004BA |     1 <-- ROW SWITCH
+     524 |   7  30 | [24,38)    |     0     0 |    7   30 |            0      247 | 0x000000F7 |     0 <-- ROW SWITCH
+     525 |   7  31 | [24,38)    |     0     1 |    7    0 |         1024      217 | 0x000004D9 |     1 <-- ROW SWITCH
+     538 |   8  30 | [24,38)    |     0     0 |    8   30 |            0      278 | 0x00000116 |     0 <-- ROW SWITCH
+     539 |   8  31 | [24,38)    |     0     1 |    8    0 |         1024      248 | 0x000004F8 |     1 <-- ROW SWITCH
+     552 |   9  30 | [24,38)    |     0     0 |    9   30 |            0      309 | 0x00000135 |     0 <-- ROW SWITCH
+     553 |   9  31 | [24,38)    |     0     1 |    9    0 |         1024      279 | 0x00000517 |     1 <-- ROW SWITCH
+    1406 |   4  30 | [24,38)    |     0     0 |    4   30 |            0      154 | 0x0000009A |     0 <-- ROW SWITCH
+    1407 |   4  31 | [24,38)    |     0     1 |    4    0 |         1024      124 | 0x0000047C |     1 <-- ROW SWITCH
+    1420 |   5  30 | [24,38)    |     0     0 |    5   30 |            0      185 | 0x000000B9 |     0 <-- ROW SWITCH
+    1421 |   5  31 | [24,38)    |     0     1 |    5    0 |         1024      155 | 0x0000049B |     1 <-- ROW SWITCH
+    1434 |   6  30 | [24,38)    |     0     0 |    6   30 |            0      216 | 0x000000D8 |     0 <-- ROW SWITCH
+    1435 |   6  31 | [24,38)    |     0     1 |    6    0 |         1024      186 | 0x000004BA |     1 <-- ROW SWITCH
+    1448 |   7  30 | [24,38)    |     0     0 |    7   30 |            0      247 | 0x000000F7 |     0 <-- ROW SWITCH
+    1449 |   7  31 | [24,38)    |     0     1 |    7    0 |         1024      217 | 0x000004D9 |     1 <-- ROW SWITCH
+    1462 |   8  30 | [24,38)    |     0     0 |    8   30 |            0      278 | 0x00000116 |     0 <-- ROW SWITCH
+    1463 |   8  31 | [24,38)    |     0     1 |    8    0 |         1024      248 | 0x000004F8 |     1 <-- ROW SWITCH
+    1476 |   9  30 | [24,38)    |     0     0 |    9   30 |            0      309 | 0x00000135 |     0 <-- ROW SWITCH
+    1477 |   9  31 | [24,38)    |     0     1 |    9    0 |         1024      279 | 0x00000517 |     1 <-- ROW SWITCH
+    1490 |  10  30 | [24,38)    |     0     0 |   10   30 |            0      340 | 0x00000154 |     0 <-- ROW SWITCH
+    1491 |  10  31 | [24,38)    |     0     1 |   10    0 |         1024      310 | 0x00000536 |     1 <-- ROW SWITCH
+    1504 |  11  30 | [24,38)    |     0     0 |   11   30 |            0      371 | 0x00000173 |     0 <-- ROW SWITCH
+    1505 |  11  31 | [24,38)    |     0     1 |   11    0 |         1024      341 | 0x00000555 |     1 <-- ROW SWITCH
+    1518 |  12  30 | [24,38)    |     0     0 |   12   30 |            0      402 | 0x00000192 |     0 <-- ROW SWITCH
+    1519 |  12  31 | [24,38)    |     0     1 |   12    0 |         1024      372 | 0x00000574 |     1 <-- ROW SWITCH
+    1532 |  13  30 | [24,38)    |     0     0 |   13   30 |            0      433 | 0x000001B1 |     0 <-- ROW SWITCH
+    1533 |  13  31 | [24,38)    |     0     1 |   13    0 |         1024      403 | 0x00000593 |     1 <-- ROW SWITCH
+    2386 |   8  30 | [24,38)    |     0     0 |    8   30 |            0      278 | 0x00000116 |     0 <-- ROW SWITCH
+    2387 |   8  31 | [24,38)    |     0     1 |    8    0 |         1024      248 | 0x000004F8 |     1 <-- ROW SWITCH
+    2400 |   9  30 | [24,38)    |     0     0 |    9   30 |            0      309 | 0x00000135 |     0 <-- ROW SWITCH
+    2401 |   9  31 | [24,38)    |     0     1 |    9    0 |         1024      279 | 0x00000517 |     1 <-- ROW SWITCH
+    2414 |  10  30 | [24,38)    |     0     0 |   10   30 |            0      340 | 0x00000154 |     0 <-- ROW SWITCH
+    2415 |  10  31 | [24,38)    |     0     1 |   10    0 |         1024      310 | 0x00000536 |     1 <-- ROW SWITCH
+    2428 |  11  30 | [24,38)    |     0     0 |   11   30 |            0      371 | 0x00000173 |     0 <-- ROW SWITCH
+    2429 |  11  31 | [24,38)    |     0     1 |   11    0 |         1024      341 | 0x00000555 |     1 <-- ROW SWITCH
+    2442 |  12  30 | [24,38)    |     0     0 |   12   30 |            0      402 | 0x00000192 |     0 <-- ROW SWITCH
+    2443 |  12  31 | [24,38)    |     0     1 |   12    0 |         1024      372 | 0x00000574 |     1 <-- ROW SWITCH
+
+  Trace Statistics:
+    Total trace lines: 1565256
+
+  Input (Bank 0):
+    Total accesses: 41160
+    Unique addresses: 11532
+    Unique rows: 12
+    Rows accessed: [0, 1, 7, 8, 98, 99, 105, 106, 196, 197, 203, 204]
+    Row activations (switches): 912
+    Row visit pattern:
+      Row 0: activated 76 times
+      Row 1: activated 76 times
+      Row 7: activated 76 times
+      Row 8: activated 76 times
+      Row 98: activated 76 times
+      Row 99: activated 76 times
+      Row 105: activated 76 times
+      Row 106: activated 76 times
+      Row 196: activated 76 times
+      Row 197: activated 76 times
+      Row 203: activated 76 times
+      Row 204: activated 76 times
+
+  Weight (Bank 1):
+    Total accesses: 921984
+    Unique addresses: 9408
+    Unique rows: 10
+    Rows accessed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+    Row activations (switches): 1174
+    Row visit pattern:
+      Row 0: activated 98 times
+      Row 1: activated 98 times
+      Row 2: activated 98 times
+      Row 3: activated 195 times
+      Row 4: activated 98 times
+      Row 5: activated 98 times
+      Row 6: activated 195 times
+      Row 7: activated 98 times
+      Row 8: activated 98 times
+      Row 9: activated 98 times
+
+  Output (Bank 2):
+    Total accesses: 602112
+    Unique addresses: 200704
+    Unique rows: 196
+    Rows accessed: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125, 126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139, 140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195]
+    Row activations (switches): 588
+    Row visit pattern:
+      Row 0: activated 3 times
+      Row 1: activated 3 times
+      Row 2: activated 3 times
+      Row 3: activated 3 times
+      Row 4: activated 3 times
+      Row 5: activated 3 times
+      Row 6: activated 3 times
+      Row 7: activated 3 times
+      Row 8: activated 3 times
+      Row 9: activated 3 times
+      Row 10: activated 3 times
+      Row 11: activated 3 times
+      Row 12: activated 3 times
+      Row 13: activated 3 times
+      Row 14: activated 3 times
+      Row 15: activated 3 times
+      Row 16: activated 3 times
+      Row 17: activated 3 times
+      Row 18: activated 3 times
+      Row 19: activated 3 times
+      Row 20: activated 3 times
+      Row 21: activated 3 times
+      Row 22: activated 3 times
+      Row 23: activated 3 times
+      Row 24: activated 3 times
+      Row 25: activated 3 times
+      Row 26: activated 3 times
+      Row 27: activated 3 times
+      Row 28: activated 3 times
+      Row 29: activated 3 times
+      Row 30: activated 3 times
+      Row 31: activated 3 times
+      Row 32: activated 3 times
+      Row 33: activated 3 times
+      Row 34: activated 3 times
+      Row 35: activated 3 times
+      Row 36: activated 3 times
+      Row 37: activated 3 times
+      Row 38: activated 3 times
+      Row 39: activated 3 times
+      Row 40: activated 3 times
+      Row 41: activated 3 times
+      Row 42: activated 3 times
+      Row 43: activated 3 times
+      Row 44: activated 3 times
+      Row 45: activated 3 times
+      Row 46: activated 3 times
+      Row 47: activated 3 times
+      Row 48: activated 3 times
+      Row 49: activated 3 times
+      Row 50: activated 3 times
+      Row 51: activated 3 times
+      Row 52: activated 3 times
+      Row 53: activated 3 times
+      Row 54: activated 3 times
+      Row 55: activated 3 times
+      Row 56: activated 3 times
+      Row 57: activated 3 times
+      Row 58: activated 3 times
+      Row 59: activated 3 times
+      Row 60: activated 3 times
+      Row 61: activated 3 times
+      Row 62: activated 3 times
+      Row 63: activated 3 times
+      Row 64: activated 3 times
+      Row 65: activated 3 times
+      Row 66: activated 3 times
+      Row 67: activated 3 times
+      Row 68: activated 3 times
+      Row 69: activated 3 times
+      Row 70: activated 3 times
+      Row 71: activated 3 times
+      Row 72: activated 3 times
+      Row 73: activated 3 times
+      Row 74: activated 3 times
+      Row 75: activated 3 times
+      Row 76: activated 3 times
+      Row 77: activated 3 times
+      Row 78: activated 3 times
+      Row 79: activated 3 times
+      Row 80: activated 3 times
+      Row 81: activated 3 times
+      Row 82: activated 3 times
+      Row 83: activated 3 times
+      Row 84: activated 3 times
+      Row 85: activated 3 times
+      Row 86: activated 3 times
+      Row 87: activated 3 times
+      Row 88: activated 3 times
+      Row 89: activated 3 times
+      Row 90: activated 3 times
+      Row 91: activated 3 times
+      Row 92: activated 3 times
+      Row 93: activated 3 times
+      Row 94: activated 3 times
+      Row 95: activated 3 times
+      Row 96: activated 3 times
+      Row 97: activated 3 times
+      Row 98: activated 3 times
+      Row 99: activated 3 times
+      Row 100: activated 3 times
+      Row 101: activated 3 times
+      Row 102: activated 3 times
+      Row 103: activated 3 times
+      Row 104: activated 3 times
+      Row 105: activated 3 times
+      Row 106: activated 3 times
+      Row 107: activated 3 times
+      Row 108: activated 3 times
+      Row 109: activated 3 times
+      Row 110: activated 3 times
+      Row 111: activated 3 times
+      Row 112: activated 3 times
+      Row 113: activated 3 times
+      Row 114: activated 3 times
+      Row 115: activated 3 times
+      Row 116: activated 3 times
+      Row 117: activated 3 times
+      Row 118: activated 3 times
+      Row 119: activated 3 times
+      Row 120: activated 3 times
+      Row 121: activated 3 times
+      Row 122: activated 3 times
+      Row 123: activated 3 times
+      Row 124: activated 3 times
+      Row 125: activated 3 times
+      Row 126: activated 3 times
+      Row 127: activated 3 times
+      Row 128: activated 3 times
+      Row 129: activated 3 times
+      Row 130: activated 3 times
+      Row 131: activated 3 times
+      Row 132: activated 3 times
+      Row 133: activated 3 times
+      Row 134: activated 3 times
+      Row 135: activated 3 times
+      Row 136: activated 3 times
+      Row 137: activated 3 times
+      Row 138: activated 3 times
+      Row 139: activated 3 times
+      Row 140: activated 3 times
+      Row 141: activated 3 times
+      Row 142: activated 3 times
+      Row 143: activated 3 times
+      Row 144: activated 3 times
+      Row 145: activated 3 times
+      Row 146: activated 3 times
+      Row 147: activated 3 times
+      Row 148: activated 3 times
+      Row 149: activated 3 times
+      Row 150: activated 3 times
+      Row 151: activated 3 times
+      Row 152: activated 3 times
+      Row 153: activated 3 times
+      Row 154: activated 3 times
+      Row 155: activated 3 times
+      Row 156: activated 3 times
+      Row 157: activated 3 times
+      Row 158: activated 3 times
+      Row 159: activated 3 times
+      Row 160: activated 3 times
+      Row 161: activated 3 times
+      Row 162: activated 3 times
+      Row 163: activated 3 times
+      Row 164: activated 3 times
+      Row 165: activated 3 times
+      Row 166: activated 3 times
+      Row 167: activated 3 times
+      Row 168: activated 3 times
+      Row 169: activated 3 times
+      Row 170: activated 3 times
+      Row 171: activated 3 times
+      Row 172: activated 3 times
+      Row 173: activated 3 times
+      Row 174: activated 3 times
+      Row 175: activated 3 times
+      Row 176: activated 3 times
+      Row 177: activated 3 times
+      Row 178: activated 3 times
+      Row 179: activated 3 times
+      Row 180: activated 3 times
+      Row 181: activated 3 times
+      Row 182: activated 3 times
+      Row 183: activated 3 times
+      Row 184: activated 3 times
+      Row 185: activated 3 times
+      Row 186: activated 3 times
+      Row 187: activated 3 times
+      Row 188: activated 3 times
+      Row 189: activated 3 times
+      Row 190: activated 3 times
+      Row 191: activated 3 times
+      Row 192: activated 3 times
+      Row 193: activated 3 times
+      Row 194: activated 3 times
+      Row 195: activated 3 times
+
+====================================================================================================
+7. SAMPLE TRACE ENTRIES (First 100)
+====================================================================================================
+     0: LD 0x00000000 -> Input  Row=  0 Col=   0 <-- NEW ROW
+     1: LD 0x00000001 -> Input  Row=  0 Col=   1
+     2: LD 0x00000002 -> Input  Row=  0 Col=   2
+     3: LD 0x00000003 -> Input  Row=  0 Col=   3
+     4: LD 0x00000004 -> Input  Row=  0 Col=   4
+     5: LD 0x00000005 -> Input  Row=  0 Col=   5
+     6: LD 0x00000006 -> Input  Row=  0 Col=   6
+     7: LD 0x00000007 -> Input  Row=  0 Col=   7
+     8: LD 0x00000008 -> Input  Row=  0 Col=   8
+     9: LD 0x00000009 -> Input  Row=  0 Col=   9
+    10: LD 0x0000000A -> Input  Row=  0 Col=  10
+    11: LD 0x0000000B -> Input  Row=  0 Col=  11
+    12: LD 0x0000000C -> Input  Row=  0 Col=  12
+    13: LD 0x0000000D -> Input  Row=  0 Col=  13
+    14: LD 0x0000001F -> Input  Row=  0 Col=  31
+    15: LD 0x00000020 -> Input  Row=  0 Col=  32
+    16: LD 0x00000021 -> Input  Row=  0 Col=  33
+    17: LD 0x00000022 -> Input  Row=  0 Col=  34
+    18: LD 0x00000023 -> Input  Row=  0 Col=  35
+    19: LD 0x00000024 -> Input  Row=  0 Col=  36
+    20: LD 0x00000025 -> Input  Row=  0 Col=  37
+    21: LD 0x00000026 -> Input  Row=  0 Col=  38
+    22: LD 0x00000027 -> Input  Row=  0 Col=  39
+    23: LD 0x00000028 -> Input  Row=  0 Col=  40
+    24: LD 0x00000029 -> Input  Row=  0 Col=  41
+    25: LD 0x0000002A -> Input  Row=  0 Col=  42
+    26: LD 0x0000002B -> Input  Row=  0 Col=  43
+    27: LD 0x0000002C -> Input  Row=  0 Col=  44
+    28: LD 0x0000003E -> Input  Row=  0 Col=  62
+    29: LD 0x0000003F -> Input  Row=  0 Col=  63
+    30: LD 0x00000040 -> Input  Row=  0 Col=  64
+    31: LD 0x00000041 -> Input  Row=  0 Col=  65
+    32: LD 0x00000042 -> Input  Row=  0 Col=  66
+    33: LD 0x00000043 -> Input  Row=  0 Col=  67
+    34: LD 0x00000044 -> Input  Row=  0 Col=  68
+    35: LD 0x00000045 -> Input  Row=  0 Col=  69
+    36: LD 0x00000046 -> Input  Row=  0 Col=  70
+    37: LD 0x00000047 -> Input  Row=  0 Col=  71
+    38: LD 0x00000048 -> Input  Row=  0 Col=  72
+    39: LD 0x00000049 -> Input  Row=  0 Col=  73
+    40: LD 0x0000004A -> Input  Row=  0 Col=  74
+    41: LD 0x0000004B -> Input  Row=  0 Col=  75
+    42: LD 0x0000005D -> Input  Row=  0 Col=  93
+    43: LD 0x0000005E -> Input  Row=  0 Col=  94
+    44: LD 0x0000005F -> Input  Row=  0 Col=  95
+    45: LD 0x00000060 -> Input  Row=  0 Col=  96
+    46: LD 0x00000061 -> Input  Row=  0 Col=  97
+    47: LD 0x00000062 -> Input  Row=  0 Col=  98
+    48: LD 0x00000063 -> Input  Row=  0 Col=  99
+    49: LD 0x00000064 -> Input  Row=  0 Col= 100
+    50: LD 0x00000065 -> Input  Row=  0 Col= 101
+    51: LD 0x00000066 -> Input  Row=  0 Col= 102
+    52: LD 0x00000067 -> Input  Row=  0 Col= 103
+    53: LD 0x00000068 -> Input  Row=  0 Col= 104
+    54: LD 0x00000069 -> Input  Row=  0 Col= 105
+    55: LD 0x0000006A -> Input  Row=  0 Col= 106
+    56: LD 0x0000007C -> Input  Row=  0 Col= 124
+    57: LD 0x0000007D -> Input  Row=  0 Col= 125
+    58: LD 0x0000007E -> Input  Row=  0 Col= 126
+    59: LD 0x0000007F -> Input  Row=  0 Col= 127
+    60: LD 0x00000080 -> Input  Row=  0 Col= 128
+    61: LD 0x00000081 -> Input  Row=  0 Col= 129
+    62: LD 0x00000082 -> Input  Row=  0 Col= 130
+    63: LD 0x00000083 -> Input  Row=  0 Col= 131
+    64: LD 0x00000084 -> Input  Row=  0 Col= 132
+    65: LD 0x00000085 -> Input  Row=  0 Col= 133
+    66: LD 0x00000086 -> Input  Row=  0 Col= 134
+    67: LD 0x00000087 -> Input  Row=  0 Col= 135
+    68: LD 0x00000088 -> Input  Row=  0 Col= 136
+    69: LD 0x00000089 -> Input  Row=  0 Col= 137
+    70: LD 0x0000009B -> Input  Row=  0 Col= 155
+    71: LD 0x0000009C -> Input  Row=  0 Col= 156
+    72: LD 0x0000009D -> Input  Row=  0 Col= 157
+    73: LD 0x0000009E -> Input  Row=  0 Col= 158
+    74: LD 0x0000009F -> Input  Row=  0 Col= 159
+    75: LD 0x000000A0 -> Input  Row=  0 Col= 160
+    76: LD 0x000000A1 -> Input  Row=  0 Col= 161
+    77: LD 0x000000A2 -> Input  Row=  0 Col= 162
+    78: LD 0x000000A3 -> Input  Row=  0 Col= 163
+    79: LD 0x000000A4 -> Input  Row=  0 Col= 164
+    80: LD 0x000000A5 -> Input  Row=  0 Col= 165
+    81: LD 0x000000A6 -> Input  Row=  0 Col= 166
+    82: LD 0x000000A7 -> Input  Row=  0 Col= 167
+    83: LD 0x000000A8 -> Input  Row=  0 Col= 168
+    84: LD 0x000000BA -> Input  Row=  0 Col= 186
+    85: LD 0x000000BB -> Input  Row=  0 Col= 187
+    86: LD 0x000000BC -> Input  Row=  0 Col= 188
+    87: LD 0x000000BD -> Input  Row=  0 Col= 189
+    88: LD 0x000000BE -> Input  Row=  0 Col= 190
+    89: LD 0x000000BF -> Input  Row=  0 Col= 191
+    90: LD 0x000000C0 -> Input  Row=  0 Col= 192
+    91: LD 0x000000C1 -> Input  Row=  0 Col= 193
+    92: LD 0x000000C2 -> Input  Row=  0 Col= 194
+    93: LD 0x000000C3 -> Input  Row=  0 Col= 195
+    94: LD 0x000000C4 -> Input  Row=  0 Col= 196
+    95: LD 0x000000C5 -> Input  Row=  0 Col= 197
+    96: LD 0x000000C6 -> Input  Row=  0 Col= 198
+    97: LD 0x000000C7 -> Input  Row=  0 Col= 199
+    98: LD 0x000000D9 -> Input  Row=  0 Col= 217
+    99: LD 0x000000DA -> Input  Row=  0 Col= 218
+
+====================================================================================================
+8. DISCREPANCY ANALYSIS
+====================================================================================================
+
+  Comparison:
+  Tensor     ILP             Trace           Ratio (Trace/ILP)   
+  ------------------------------------------------------------
+  Input      1182.00         912             0.77                
+  Weight     900.37          1174            1.30                
+  Output     588.00          588             1.00                
+
+  Key Observations:
+    - ILP computes row_acts based on DRAM level tiling factors
+    - Trace counts actual row switches during execution
+    - The large discrepancy suggests:
+      1. ILP model may only consider Level 3 factors, not Level 2+3
+      2. Or trace generator iterates both Level 2 and Level 3 loops
+      3. Or the formula for row_aligned mode is incorrect

@@ -1,0 +1,73 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+
+\title{DRAM Latency Model}
+\author{PIM Optimizer}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{DRAM Latency Model}
+
+DRAM latency consists of two components: RowBuffer data transfer and Row Activation.
+Since RowBuffer is part of DRAM, these two latencies should be summed together.
+
+\subsection{Per-Datatype DRAM Latency}
+
+For each datatype $t \in \{\text{input}, \text{weight}, \text{output}\}$:
+
+\begin{equation}
+\boxed{
+\text{DRAM\_latency}_t = \underbrace{\frac{\text{mem\_reads}_t}{\text{rowbuffer\_bandwidth}}}_{\text{RowBuffer Data Transfer}} + \underbrace{\text{row\_acts}_t \times \text{activation\_latency}}_{\text{Row Activation}}
+}
+\end{equation}
+
+Where:
+\begin{itemize}
+    \item $\text{mem\_reads}_t$ — Number of bytes read from RowBuffer for datatype $t$
+    \item $\text{rowbuffer\_bandwidth}$ — RowBuffer read bandwidth (bytes/cycle)
+    \item $\text{row\_acts}_t$ — Number of row activations for datatype $t$
+    \item $\text{activation\_latency}$ — Latency per row activation (cycles), typically 25 cycles
+\end{itemize}
+
+\subsection{Total DRAM Latency}
+
+The total DRAM latency is the maximum of all three datatype latencies:
+
+\begin{equation}
+\boxed{
+\text{DRAM\_latency}_{\text{total}} = \max\left(\text{DRAM\_latency}_{\text{input}}, \text{DRAM\_latency}_{\text{weight}}, \text{DRAM\_latency}_{\text{output}}\right)
+}
+\end{equation}
+
+\subsection{Expanded Form}
+
+Combining the above equations:
+
+\begin{equation}
+\text{DRAM\_latency}_{\text{total}} = \max_{t \in \{I, W, O\}} \left( \frac{\text{mem\_reads}_t}{\text{BW}_{\text{rowbuf}}} + \text{row\_acts}_t \cdot T_{\text{act}} \right)
+\end{equation}
+
+Where:
+\begin{itemize}
+    \item $I$ = input, $W$ = weight, $O$ = output
+    \item $\text{BW}_{\text{rowbuf}}$ = RowBuffer bandwidth
+    \item $T_{\text{act}}$ = Row activation latency
+\end{itemize}
+
+\section{Overall Latency Model}
+
+The overall latency is determined by the bottleneck among compute and memory:
+
+\begin{equation}
+\boxed{
+\text{Latency} = \max\left(\text{Compute\_cycles}, \text{DRAM\_latency}_{\text{total}}, \text{GlobalBuffer\_latency}, \ldots\right)
+}
+\end{equation}
+
+\end{document}

@@ -1,0 +1,32 @@
+% Per-Tensor Row Activation Breakdown
+
+\begin{table}[t]
+\centering
+\caption{Per-Tensor Row Activation Breakdown}
+\label{tab:row_activation_breakdown}
+\begin{tabular}{l|rrr|rrr}
+\toprule
+ & \multicolumn{3}{c|}{ILP Prediction} & \multicolumn{3}{c}{Trace Count} \\
+Workload & Input & Weight & Output & Input & Weight & Output \\
+\midrule
+ResNet18-Conv1 & 37,632 & 10 & 784 & 10,805 & 0 & 0 \\
+ResNet18-Conv2 & 25,088 & 36 & 3,136 & 5,880 & 0 & 0 \\
+ResNet18-Conv3 & 21,504 & 72 & 98 & 4,704 & 0 & 0 \\
+ResNet18-Conv4 & 10,752 & 288 & 49 & 1,176 & 0 & 0 \\
+ResNet18-Conv5 & 12,544 & 1,152 & 25 & 7,056 & 0 & 0 \\
+VGG16-Conv1 & 18,816 & 12,546 & 6,272 & 1,323 & 0 & 0 \\
+VGG16-Conv2 & 75,264 & 72 & 1,568 & 16,384 & 7,136 & 0 \\
+VGG16-Conv3 & 401,408 & 288 & 784 & 16,384 & 16,384 & 14,272 \\
+VGG16-Conv4 & 60,160 & 57,344 & 392 & 16,384 & 16,384 & 16,384 \\
+VGG16-Conv5 & 56,448 & 2,304 & 98 & 882 & 0 & 0 \\
+MobileNet-PW1 & 6,272 & 2 & 6,272 & 3,136 & 0 & 0 \\
+MobileNet-PW2 & 3,136 & 8 & 784 & 1,568 & 0 & 0 \\
+MobileNet-PW3 & 3,584 & 32 & 196 & 3,136 & 0 & 0 \\
+MobileNet-PW4 & 448 & 128 & 98 & 3,136 & 0 & 0 \\
+Batch-N1 & 21,504 & 72 & 98 & 4,704 & 0 & 0 \\
+Batch-N2 & 50,176 & 72 & 196 & 3,528 & 0 & 0 \\
+Batch-N4 & 896 & 57,344 & 57,344 & 16,384 & 16,384 & 16,384 \\
+Batch-N8 & 100,352 & 72 & 784 & 16,384 & 11,840 & 0 \\
+\bottomrule
+\end{tabular}
+\end{table}
