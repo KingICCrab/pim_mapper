@@ -717,12 +717,12 @@ def main():
     # Print summary
     print()
     print("=" * 100)
-    print("SUMMARY (Weight & Output Comparison)")
+    print("SUMMARY (Input, Weight & Output Comparison)")
     print("=" * 100)
-    print(f"{'Workload':<15} | {'ILP Weight':<12} {'Trace Weight':<12} | {'ILP Output':<12} {'Trace Output':<12}")
+    print(f"{'Workload':<15} | {'ILP Input':<12} {'Trace Input':<12} | {'ILP Weight':<12} {'Trace Weight':<12} | {'ILP Output':<12} {'Trace Output':<12}")
     print("-" * 100)
     for name, stats in results:
-        print(f"{name:<15} | {stats['ilp_weight']:<12.2f} {stats['trace_weight']:<12d} | {stats['ilp_output']:<12.2f} {stats['trace_output']:<12d}")
+        print(f"{name:<15} | {stats['ilp_input']:<12.2f} {stats['trace_input']:<12d} | {stats['ilp_weight']:<12.2f} {stats['trace_weight']:<12d} | {stats['ilp_output']:<12.2f} {stats['trace_output']:<12d}")
     
     print()
     print(f"Done! Check {output_dir} for detailed results.")

@@ -1,0 +1,59 @@
+%!TEX program = xelatex
+\documentclass[UTF8]{ctexart}
+\usepackage{geometry}
+\usepackage{enumitem}
+\usepackage{hyperref}
+
+\geometry{a4paper, margin=1in}
+
+\title{ILP 筛选能力验证报告}
+\author{PIM Optimizer Team}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{实验目标}
+验证 ILP 模型是否能够有效地“筛选”搜索空间，即识别出高质量的候选映射方案，以便后续使用 Trace 模拟器进行精确验证。
+
+\section{实验方法}
+\begin{enumerate}
+    \item \textbf{生成候选池}：使用 Gurobi 的 \texttt{PoolSearchMode} 生成前 200 个 ILP 解。
+    \item \textbf{验证}：对所有 200 个解运行 \texttt{FastTraceGenerator}，以获取“真实”的代价（行激活数，Row Activations）。
+    \item \textbf{相关性分析}：对比 ILP 排名与真实排名。
+\end{enumerate}
+
+\section{限制与修改}
+由于 **Gurobi License 限制（2000 个变量）**，无法运行完整的 ILP 模型。为了进行该实验，模型被大幅简化（Stripped）：
+\begin{itemize}
+    \item \textbf{禁用}：行激活（Row Activation）约束（这是主要优化指标）。
+    \item \textbf{禁用}：复用跟踪（Reuse Tracking）约束。
+    \item \textbf{简化}：目标函数从“延迟（Latency）”更改为“总计算量（Total Compute）”（即最大化并行度）。
+    \item \textbf{近似}：分段线性（PWL）函数减少为 1 段。
+\end{itemize}
+
+\section{实验结果}
+\begin{itemize}
+    \item \textbf{执行情况}：成功使用简化模型（约 313 个变量）生成了 200 个解。
+    \item \textbf{筛选性能}：
+    \begin{itemize}
+        \item \textbf{真实最优解（True Best Solution，最低行激活数）} 出现在 \textbf{ILP 排名的第 99 位}。
+        \item ILP 认为最好的前 10 个解（针对并行度优化）在行激活数（内存性能）上表现不佳。
+    \end{itemize}
+\end{itemize}
+
+\section{结论}
+实验证实了 \textbf{完整 ILP 模型的必要性}。
+\begin{itemize}
+    \item 简化模型（仅优化计算）与 Trace 指标（优化内存）之间的相关性很差。
+    \item 这一负面结果验证了完整模型设计的合理性：必须包含那些导致变量数量激增的复杂约束（如行激活和复用跟踪），才能准确捕捉内存行为。
+\end{itemize}
+
+\section{当前状态}
+\begin{itemize}
+    \item \texttt{src/} 中的源代码已 \textbf{回滚} 到原始状态（完整模型）。
+    \item 验证脚本 \texttt{verify\_ilp\_filtering\_capability.py} 已保留，以备将来在拥有完整 License 时使用。
+\end{itemize}
+
+\end{document}

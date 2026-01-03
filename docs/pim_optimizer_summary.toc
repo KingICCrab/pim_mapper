@@ -1,0 +1,101 @@
+\contentsline {section}{\numberline {1}Introduction}{4}{section.1}%
+\contentsline {subsection}{\numberline {1.1}Project Overview}{4}{subsection.1.1}%
+\contentsline {subsection}{\numberline {1.2}Key Features}{4}{subsection.1.2}%
+\contentsline {section}{\numberline {2}System Architecture}{4}{section.2}%
+\contentsline {subsection}{\numberline {2.1}Overall Design}{4}{subsection.2.1}%
+\contentsline {subsection}{\numberline {2.2}Module Organization}{4}{subsection.2.2}%
+\contentsline {section}{\numberline {3}Architecture Definition}{5}{section.3}%
+\contentsline {subsection}{\numberline {3.1}PIM Architecture (\texttt {arch/pim\_arch.py})}{5}{subsection.3.1}%
+\contentsline {subsubsection}{\numberline {3.1.1}Key Attributes}{5}{subsubsection.3.1.1}%
+\contentsline {subsubsection}{\numberline {3.1.2}DRAM Timing Parameters}{6}{subsubsection.3.1.2}%
+\contentsline {subsection}{\numberline {3.2}Memory Hierarchy (\texttt {arch/memory.py})}{6}{subsection.3.2}%
+\contentsline {subsubsection}{\numberline {3.2.1}Memory Level Definition}{6}{subsubsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.3}PE Array (\texttt {arch/pe\_array.py})}{7}{subsection.3.3}%
+\contentsline {subsubsection}{\numberline {3.3.1}Compute Unit}{7}{subsubsection.3.3.1}%
+\contentsline {section}{\numberline {4}Workload Definition}{7}{section.4}%
+\contentsline {subsection}{\numberline {4.1}Convolution Workload (\texttt {workload/conv.py})}{7}{subsection.4.1}%
+\contentsline {subsubsection}{\numberline {4.1.1}Dimension Definitions}{7}{subsubsection.4.1.1}%
+\contentsline {subsubsection}{\numberline {4.1.2}Dimension-Datatype Relevancy Matrix}{7}{subsubsection.4.1.2}%
+\contentsline {subsubsection}{\numberline {4.1.3}Input Size Calculation}{8}{subsubsection.4.1.3}%
+\contentsline {section}{\numberline {5}ILP Model Formulation}{8}{section.5}%
+\contentsline {subsection}{\numberline {5.1}Overview}{8}{subsection.5.1}%
+\contentsline {subsection}{\numberline {5.2}Decision Variables (\texttt {model/variables.py})}{8}{subsection.5.2}%
+\contentsline {subsubsection}{\numberline {5.2.1}Loop Bound Variables ($x_b$)}{8}{subsubsection.5.2.1}%
+\contentsline {subsubsection}{\numberline {5.2.2}Spatial Direction Encoding}{9}{subsubsection.5.2.2}%
+\contentsline {subsubsection}{\numberline {5.2.3}Permutation Variables ($x_p$)}{9}{subsubsection.5.2.3}%
+\contentsline {subsubsection}{\numberline {5.2.4}Bypass Variables ($x_d$)}{9}{subsubsection.5.2.4}%
+\contentsline {subsubsection}{\numberline {5.2.5}Layout Variables}{9}{subsubsection.5.2.5}%
+\contentsline {subsubsection}{\numberline {5.2.6}Row Buffer Block Variables}{9}{subsubsection.5.2.6}%
+\contentsline {subsection}{\numberline {5.3}Constraints (\texttt {model/constraints.py})}{10}{subsection.5.3}%
+\contentsline {subsubsection}{\numberline {5.3.1}Dimension Factorization}{10}{subsubsection.5.3.1}%
+\contentsline {subsubsection}{\numberline {5.3.2}One Factor Per Loop}{10}{subsubsection.5.3.2}%
+\contentsline {subsubsection}{\numberline {5.3.3}Spatial Exclusivity for PE Layer}{10}{subsubsection.5.3.3}%
+\contentsline {subsubsection}{\numberline {5.3.4}No Spatial Above PE}{10}{subsubsection.5.3.4}%
+\contentsline {subsubsection}{\numberline {5.3.5}Permutation Constraints}{10}{subsubsection.5.3.5}%
+\contentsline {subsubsection}{\numberline {5.3.6}Buffer Capacity Constraints}{11}{subsubsection.5.3.6}%
+\contentsline {subsubsection}{\numberline {5.3.7}PE Array Constraints}{11}{subsubsection.5.3.7}%
+\contentsline {subsubsection}{\numberline {5.3.8}Layout Selection}{11}{subsubsection.5.3.8}%
+\contentsline {subsection}{\numberline {5.4}Expressions (\texttt {model/expressions.py})}{11}{subsection.5.4}%
+\contentsline {subsubsection}{\numberline {5.4.1}Tile Size Calculation}{11}{subsubsection.5.4.1}%
+\contentsline {subsubsection}{\numberline {5.4.2}Memory Reads Per Invocation}{11}{subsubsection.5.4.2}%
+\contentsline {subsection}{\numberline {5.5}Row Activation Model (\texttt {model/row\_activation.py})}{12}{subsection.5.5}%
+\contentsline {subsubsection}{\numberline {5.5.1}Overview}{12}{subsubsection.5.5.1}%
+\contentsline {subsubsection}{\numberline {5.5.2}Sequential Mode (Streaming vs. Thrashing)}{12}{subsubsection.5.5.2}%
+\contentsline {subsubsection}{\numberline {5.5.3}Row-Aligned Mode (Tiling)}{12}{subsubsection.5.5.3}%
+\contentsline {subsubsection}{\numberline {5.5.4}Input Block Crossing (Additive Penalty)}{13}{subsubsection.5.5.4}%
+\contentsline {subsubsection}{\numberline {5.5.5}Total Row Activations}{13}{subsubsection.5.5.5}%
+\contentsline {paragraph}{Summary of Logic}{13}{section*.2}%
+\contentsline {subsection}{\numberline {5.6}Objective Function (\texttt {model/objective.py})}{13}{subsection.5.6}%
+\contentsline {subsubsection}{\numberline {5.6.1}Compute Cycles}{13}{subsubsection.5.6.1}%
+\contentsline {subsubsection}{\numberline {5.6.2}Memory Latency}{14}{subsubsection.5.6.2}%
+\contentsline {subsubsection}{\numberline {5.6.3}Total Latency}{14}{subsubsection.5.6.3}%
+\contentsline {subsubsection}{\numberline {5.6.4}Energy}{14}{subsubsection.5.6.4}%
+\contentsline {subsubsection}{\numberline {5.6.5}Objective}{14}{subsubsection.5.6.5}%
+\contentsline {section}{\numberline {6}Optimization Process}{14}{section.6}%
+\contentsline {subsection}{\numberline {6.1}Optimizer Workflow (\texttt {optimizer.py})}{14}{subsection.6.1}%
+\contentsline {subsection}{\numberline {6.2}Complexity and Scaling}{14}{subsection.6.2}%
+\contentsline {subsubsection}{\numberline {6.2.1}Variable Count}{14}{subsubsection.6.2.1}%
+\contentsline {subsubsection}{\numberline {6.2.2}Constraint Count}{16}{subsubsection.6.2.2}%
+\contentsline {subsubsection}{\numberline {6.2.3}Solver Performance}{16}{subsubsection.6.2.3}%
+\contentsline {subsection}{\numberline {6.3}Numerical Stability}{16}{subsection.6.3}%
+\contentsline {subsubsection}{\numberline {6.3.1}Log-Space Factorization}{16}{subsubsection.6.3.1}%
+\contentsline {subsubsection}{\numberline {6.3.2}Scaling Factors}{16}{subsubsection.6.3.2}%
+\contentsline {subsubsection}{\numberline {6.3.3}Piecewise Linear Approximations}{17}{subsubsection.6.3.3}%
+\contentsline {section}{\numberline {7}Dataflow Analysis}{17}{section.7}%
+\contentsline {subsection}{\numberline {7.1}Dataflow Patterns (\texttt {analysis/dataflow.py})}{17}{subsection.7.1}%
+\contentsline {subsubsection}{\numberline {7.1.1}Weight Stationary}{17}{subsubsection.7.1.1}%
+\contentsline {subsubsection}{\numberline {7.1.2}Output Stationary}{17}{subsubsection.7.1.2}%
+\contentsline {subsubsection}{\numberline {7.1.3}Input Stationary}{17}{subsubsection.7.1.3}%
+\contentsline {subsubsection}{\numberline {7.1.4}Row Stationary}{17}{subsubsection.7.1.4}%
+\contentsline {subsection}{\numberline {7.2}Multi-Dimensional Mapping}{18}{subsection.7.2}%
+\contentsline {section}{\numberline {8}Trace Generation and Cost Models}{18}{section.8}%
+\contentsline {subsection}{\numberline {8.1}Hybrid Cost Model (\texttt {generator/hybrid\_cost\_model.py})}{18}{subsection.8.1}%
+\contentsline {subsubsection}{\numberline {8.1.1}Address Calculation}{18}{subsubsection.8.1.1}%
+\contentsline {subsubsection}{\numberline {8.1.2}Trace Simulation}{18}{subsubsection.8.1.2}%
+\contentsline {subsection}{\numberline {8.2}Precomputation Tables}{19}{subsection.8.2}%
+\contentsline {section}{\numberline {9}Result Representation}{19}{section.9}%
+\contentsline {subsection}{\numberline {9.1}Mapping Class (\texttt {mapping.py})}{19}{subsection.9.1}%
+\contentsline {subsection}{\numberline {9.2}Performance Metrics}{20}{subsection.9.2}%
+\contentsline {subsection}{\numberline {9.3}Mapping Visualization}{20}{subsection.9.3}%
+\contentsline {section}{\numberline {10}Key Innovations}{20}{section.10}%
+\contentsline {subsection}{\numberline {10.1}Multi-Dimensional PE Array Mapping}{20}{subsection.10.1}%
+\contentsline {subsection}{\numberline {10.2}GCD-Based Crossing Analysis}{21}{subsection.10.2}%
+\contentsline {subsection}{\numberline {10.3}Layout-Aware Optimization}{21}{subsection.10.3}%
+\contentsline {subsection}{\numberline {10.4}$x_j$ Reuse Tracking}{21}{subsection.10.4}%
+\contentsline {section}{\numberline {11}Example Usage}{21}{section.11}%
+\contentsline {subsection}{\numberline {11.1}Basic Optimization}{21}{subsection.11.1}%
+\contentsline {subsection}{\numberline {11.2}Multi-Workload Optimization}{22}{subsection.11.2}%
+\contentsline {subsection}{\numberline {11.3}Custom Architecture}{22}{subsection.11.3}%
+\contentsline {section}{\numberline {12}Validation and Verification}{23}{section.12}%
+\contentsline {subsection}{\numberline {12.1}Correctness Verification}{23}{subsection.12.1}%
+\contentsline {subsection}{\numberline {12.2}Performance Validation}{23}{subsection.12.2}%
+\contentsline {subsection}{\numberline {12.3}Row Activation Validation}{24}{subsection.12.3}%
+\contentsline {section}{\numberline {13}Limitations and Future Work}{24}{section.13}%
+\contentsline {subsection}{\numberline {13.1}Current Limitations}{24}{subsection.13.1}%
+\contentsline {subsection}{\numberline {13.2}Future Enhancements}{25}{subsection.13.2}%
+\contentsline {subsection}{\numberline {13.3}Research Directions}{25}{subsection.13.3}%
+\contentsline {section}{\numberline {14}Conclusion}{25}{section.14}%
+\contentsline {section}{\numberline {A}Notation Reference}{26}{appendix.A}%
+\contentsline {subsection}{\numberline {A.1}Index Conventions}{26}{subsection.A.1}%
+\contentsline {subsection}{\numberline {A.2}Symbols}{26}{subsection.A.2}%
+\contentsline {section}{\numberline {B}File Structure Reference}{26}{appendix.B}%

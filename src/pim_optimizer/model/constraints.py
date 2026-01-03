@@ -424,6 +424,36 @@ def add_reuse_tracking_constraints(
     num_mems = arch.num_mems
     num_datatypes = 3
     
+    # is_tiled constraints: track if dimension has tiling factor > 1
+    for w, workload in enumerate(workloads):
+        for m in range(num_mems):
+            # Determine spatial index for this level
+            if m == 0:
+                s_indices = [0, 1, 2, 3] # H, W, Internal, Temporal
+            else:
+                s_indices = [1] # Temporal only for DRAM/GlobalBuffer
+            
+            for j, divs in enumerate(workload.divisors):
+                # is_tiled[w, m, j] = 1 iff sum(xb where div > 1) >= 1
+                tiled_expr = gp.LinExpr(0)
+                for s in s_indices:
+                    for i, div in enumerate(divs):
+                        if div > 1:
+                            if (w, m, s, j, i) in vars.xb:
+                                xb_var = vars.xb[w, m, s, j, i]
+                                tiled_expr += xb_var
+                                # is_tiled >= xb (if any xb=1, is_tiled=1)
+                                model.addConstr(
+                                    vars.is_tiled[w, m, j] >= xb_var, 
+                                    name=f"C_is_tiled_lb_({w},{m},{j},{s},{i})"
+                                )
+                
+                # is_tiled <= sum(xb) (if all xb=0, is_tiled=0)
+                model.addConstr(
+                    vars.is_tiled[w, m, j] <= tiled_expr, 
+                    name=f"C_is_tiled_ub_({w},{m},{j})"
+                )
+
     # xr constraints: track relevant inner loops
     for w, workload in enumerate(workloads):
         for t in range(num_datatypes):
@@ -432,7 +462,13 @@ def add_reuse_tracking_constraints(
                     for p, _ in enumerate(workload.bounds):
                         perm_level_sum = gp.LinExpr(0)
                         for j, divs in enumerate(workload.divisors):
-                            perm_level_sum += vars.xp[w, m_, p, j] * workload.O[j][t]
+                            if workload.O[j][t] == 1:
+                                # Only count if dimension is relevant AND has tiling > 1
+                                # Linearize xp * is_tiled
+                                xp_tiled = model.addVar(vtype=gp.GRB.BINARY, name=f"XP_TILED_({w},{t},{m_},{p},{j})")
+                                model.addGenConstrAnd(xp_tiled, [vars.xp[w, m_, p, j], vars.is_tiled[w, m_, j]], 
+                                                     name=f"AND_XP_TILED_({w},{t},{m_},{p},{j})")
+                                perm_level_sum += xp_tiled
                         
                         if m_ == m + 1 and p == 0:
                             model.addConstr(

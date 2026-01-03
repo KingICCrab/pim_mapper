@@ -41,7 +41,7 @@ DETAILED DEBUG INFO FOR 'ResNet-L3' WORKLOAD
 ====================================================================================================
 
   Solver Status: optimal
-  Solve Time: 0.90s
+  Solve Time: 0.88s
 
 ====================================================================================================
 3. MAPPING DETAILS
@@ -60,14 +60,14 @@ DETAILED DEBUG INFO FOR 'ResNet-L3' WORKLOAD
   Memory Hierarchy: Level 0=PE, Level 1=GlobalBuffer, Level 2=RowBuffer, Level 3=LocalDRAM
 
     Level 0:
-      H: {'P': 2, 'C': 4, 'K': 2}
-      W: {'Q': 14}
+      H: {'Q': 14}
+      W: {'C': 4, 'K': 4}
       Internal: (all 1s)
-      temporal: {'R': 3, 'S': 3, 'K': 2}
+      temporal: {'R': 3, 'S': 3}
 
     Level 1:
       spatial: (all 1s)
-      temporal: (all 1s)
+      temporal: {'P': 2}
 
     Level 2:
       spatial: (all 1s)
@@ -78,16 +78,16 @@ DETAILED DEBUG INFO FOR 'ResNet-L3' WORKLOAD
       temporal: {'P': 7, 'C': 32, 'K': 32}
 
   Permutation (per memory level, inner to outer):
-    Level 0: K -> S -> R
-    Level 1: 
+    Level 0: R -> S
+    Level 1: P
     Level 2: 
     Level 3: K -> C -> P
 
   Tile Sizes (cumulative up to each level):
-    Level 0: {'R': 3, 'S': 3, 'K': 2}
-    Level 1: {'R': 3, 'S': 3, 'K': 2}
-    Level 2: {'R': 3, 'S': 3, 'K': 2}
-    Level 3: {'R': 3, 'S': 3, 'P': 7, 'C': 32, 'K': 64}
+    Level 0: {'R': 3, 'S': 3}
+    Level 1: {'R': 3, 'S': 3, 'P': 2}
+    Level 2: {'R': 3, 'S': 3, 'P': 2}
+    Level 3: {'R': 3, 'S': 3, 'P': 14, 'C': 32, 'K': 32}
 
 ====================================================================================================
 4. DRAM LEVEL ANALYSIS (Level 2 + Level 3)
@@ -118,17 +118,17 @@ DETAILED DEBUG INFO FOR 'ResNet-L3' WORKLOAD
   ILP Predicted Row Activations:
     Input:  224.0000
     Weight: 1008.0000
-    Output: 783.9999
-    Total:  2015.9999
+    Output: 784.0000
+    Total:  2016.0000
 
 ====================================================================================================
 5.1 ILP VARIABLE VALUES
 ====================================================================================================
 
   xp[m=3] - Permutation at DRAM level (which dim at which position):
-    Position 2: K
-    Position 3: C
-    Position 5: P
+    Position 0: K
+    Position 4: C
+    Position 6: P
 
   xb[m=3, s=1] - DRAM temporal bounds:
     R: divisor[0] = 1
@@ -144,14 +144,14 @@ DETAILED DEBUG INFO FOR 'ResNet-L3' WORKLOAD
     Input:
       Position 0: xr = 0
       Position 1: xr = 0
-      Position 2: xr = 0
+      Position 2: xr = 1
       Position 3: xr = 1
       Position 4: xr = 1
       Position 5: xr = 1
       Position 6: xr = 1
 
     Weight:
-      Position 0: xr = 0
+      Position 0: xr = 1
       Position 1: xr = 1
       Position 2: xr = 1
       Position 3: xr = 1
@@ -160,7 +160,7 @@ DETAILED DEBUG INFO FOR 'ResNet-L3' WORKLOAD
       Position 6: xr = 1
 
     Output:
-      Position 0: xr = 0
+      Position 0: xr = 1
       Position 1: xr = 1
       Position 2: xr = 1
       Position 3: xr = 1
@@ -283,16 +283,16 @@ DETAILED DEBUG INFO FOR 'ResNet-L3' WORKLOAD
     4. Outer Irrelevant Product: 32.0000
        (Π {outer irrelevant dims with xj=1} bound_j)
 
-    5. Row Acts (Sequential final): 783.9999
+    5. Row Acts (Sequential final): 784.0000
        (base_row_acts × outer_irr_product)
 
-    6. Sequential Part (conditional): 783.9999
+    6. Sequential Part (conditional): 784.0000
        ((1 - row_aligned) × row_acts_seq)
 
     7. Row-Aligned Part (conditional): 0.0000
        (row_aligned × row_acts_row_aligned)
 
-    9. Total Row Acts: 783.9999
+    9. Total Row Acts: 784.0000
        (seq_part + aligned_part + block_crossing)
 
     10. Scaled Row Acts: 0.2659

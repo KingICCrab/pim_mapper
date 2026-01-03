@@ -650,107 +650,49 @@ def _build_sequential_dram_crossing(
     #    Cost = Total Size / Row Size.
     #    This is constant regardless of tile size (mostly).
     
-    streaming_cost = tensor_bytes / row_buffer_size_bytes
+    streaming_cost = max(1.0, tensor_bytes / row_buffer_size_bytes)
     
     # 2. Thrashing Cost (is_thrashing=1):
     #    We assume we pay for every tile access, plus extra for crossings.
     #    Cost = (Num Tiles + Crossing Count) * Reuse.
     #    (Crossing tiles cost 2*Reuse, Non-crossing cost 1*Reuse).
     
+    # RE-APPLYING FIX: Use aux_reuse_k for Large Blocks.
+    # And also for Small Blocks that are not aligned/resident.
+    
     base_expr = gp.LinExpr(0)
-    
-    # Unified Model:
-    # We iterate over each candidate tile size.
-    # Cost = StreamingCost * Multiplier * Reuse * xu_vars[k]
-    # Multiplier depends on:
-    #   1. Tile Size: If Tile < RowSize, we have "Probabilistic Crossing" -> Multiplier = 2.
-    #   2. Thrashing: If is_thrashing=1, we have "Element-wise Thrashing" -> Multiplier = 2.
-    #   3. Streaming: If Tile >= RowSize AND is_thrashing=0 -> Multiplier = 1.
-    
     for k in range(len(xu_vars)):
         # 1. Linearize reuse_penalty * xu_vars[k]
-        # aux_reuse_k = reuse_penalty * xu_vars[k]
         aux_reuse_k = model.addVar(lb=0, ub=max_reuse_penalty, name=f"aux_reuse_k_({w},{t_id},{k})")
         model.addConstr(aux_reuse_k <= max_reuse_penalty * xu_vars[k], name=f"C_aux_reuse_ub1_({w},{t_id},{k})")
         model.addConstr(aux_reuse_k <= reuse_penalty, name=f"C_aux_reuse_ub2_({w},{t_id},{k})")
         model.addConstr(aux_reuse_k >= reuse_penalty - max_reuse_penalty * (1 - xu_vars[k]), name=f"C_aux_reuse_lb_({w},{t_id},{k})")
         
-        # 2. Determine Multiplier
-        te = tile_entries_list[k]
-        tile_bytes = te * element_bytes
-        is_small_block = tile_bytes < row_buffer_size_bytes
-        
-        # 2. Determine Multiplier
         te = tile_entries_list[k]
         tile_bytes = te * element_bytes
         is_small_block = tile_bytes < row_buffer_size_bytes
         
         if is_small_block:
-            # Case A: Small Block
-            # Check alignment: If tile fits and aligns to row boundary, we don't thrash.
-            # If it doesn't align, we probabilistically cross.
-            # BUT, we only pay the "Thrashing Penalty" (2x) if we actually REUSE the block.
-            # If we stream through (Reuse=1), the crossing is just part of the stream.
-            
             remainder = row_buffer_size_bytes % tile_bytes
             is_aligned = remainder < 1e-6 or abs(remainder - tile_bytes) < 1e-6
             
-            if is_aligned:
-                # Aligned Small Block -> No Crossing -> Streaming Cost
-                base_expr += streaming_cost * aux_reuse_k
+            # FIX: If the entire tensor fits in the row buffer, it's always a hit.
+            if tensor_bytes <= row_buffer_size_bytes:
+                base_expr += streaming_cost * xu_vars[k]
+            elif is_aligned:
+                # Aligned Small Block: Fits in Row Buffer.
+                # If we reuse it, it's a Row Hit. We only pay for the first access.
+                # So Cost = StreamingCost * 1 (xu_vars[k])
+                base_expr += streaming_cost * xu_vars[k]
             else:
-                # Unaligned Small Block -> Probabilistic Crossing
-                # If Reuse > 1 (is_reused=1) OR is_thrashing=1 -> Thrashing Cost (2x)
-                # Else -> Streaming Cost (1x)
-                
-                # We need to combine is_thrashing and is_reused
-                # effective_thrashing = is_thrashing OR is_reused
-                # Since we want to minimize cost, we can just sum the terms if they are mutually exclusive or handle overlap.
-                # Actually, is_thrashing implies Reuse > 1 usually, but not always (if size 1).
-                # Let's use a simpler logic:
-                # Cost = Streaming * Reuse * (1 + (Unaligned AND (is_thrashing OR is_reused)))
-                
-                # We need a binary var for (is_thrashing OR is_reused)
-                # Let's call it z_penalty_trigger
-                if is_thrashing is not None and is_reused is not None:
-                    z_penalty_trigger = model.addVar(vtype=gp.GRB.BINARY, name=f"z_penalty_trigger_({w},{t_id},{k})")
-                    model.addGenConstrOr(z_penalty_trigger, [is_thrashing, is_reused], name=f"C_penalty_trigger_({w},{t_id},{k})")
-                    
-                    # z_penalty_cost = z_penalty_trigger * aux_reuse_k
-                    z_penalty_cost = model.addVar(lb=0, ub=max_reuse_penalty, name=f"z_penalty_cost_({w},{t_id},{k})")
-                    model.addGenConstrIndicator(z_penalty_trigger, True, z_penalty_cost == aux_reuse_k)
-                    model.addGenConstrIndicator(z_penalty_trigger, False, z_penalty_cost == 0)
-                    
-                    base_expr += streaming_cost * (aux_reuse_k + z_penalty_cost)
-                elif is_thrashing is not None:
-                    # Fallback if is_reused not provided
-                    z_thrash_reuse = model.addVar(lb=0, ub=max_reuse_penalty, name=f"z_thrash_reuse_({w},{t_id},{k})")
-                    model.addGenConstrIndicator(is_thrashing, True, z_thrash_reuse == aux_reuse_k)
-                    model.addGenConstrIndicator(is_thrashing, False, z_thrash_reuse == 0)
-                    base_expr += streaming_cost * (aux_reuse_k + z_thrash_reuse)
-                else:
-                    # Fallback: Assume Streaming
-                    base_expr += streaming_cost * aux_reuse_k
+                # Unaligned Small Block: Might thrash.
+                # Conservative: Pay for Reuse.
+                base_expr += streaming_cost * aux_reuse_k
         else:
-            # Case B: Large Block
-            # If is_thrashing=1, we thrash inside the block -> Multiplier = 2
-            # If is_thrashing=0, we stream the block -> Multiplier = 1
-            
-            if is_thrashing is not None:
-                # z_thrash_reuse = is_thrashing * aux_reuse_k
-                z_thrash_reuse = model.addVar(lb=0, ub=max_reuse_penalty, name=f"z_thrash_reuse_({w},{t_id},{k})")
-                model.addGenConstrIndicator(is_thrashing, True, z_thrash_reuse == aux_reuse_k)
-                model.addGenConstrIndicator(is_thrashing, False, z_thrash_reuse == 0)
-                
-                # Cost = StreamingCost * (1 + is_thrashing) * aux_reuse_k
-                #      = StreamingCost * (aux_reuse_k + z_thrash_reuse)
-                base_expr += streaming_cost * (aux_reuse_k + z_thrash_reuse)
-            else:
-                # Fallback: Assume Streaming (Multiplier = 1)
-                base_expr += streaming_cost * aux_reuse_k
-            # Legacy/Fallback: If is_thrashing is None, we assume Streaming.
-            # So we don't add any Thrashing term.
-            pass
+            # Large Block: Does NOT fit in Row Buffer.
+            # Must be streamed every time it is reused.
+            # Cost = StreamingCost * Reuse
+            base_expr += streaming_cost * aux_reuse_k
             
     # Max base for bounds
     # Max Thrashing = (Max Num Tiles + Max Crossing) * Max Reuse
@@ -784,7 +726,13 @@ def _build_sequential_dram_crossing(
     
     # log(row_acts) = log(base_row_acts) + log(outer_irr_product)
     log_row_acts = model.addVar(lb=0, ub=np.log(max(1, row_acts_ub)), name=f"log_row_acts_({w},{t_id})")
-    model.addConstr(log_row_acts == log_base + log_outer_irr, name=f"C_log_row_acts_sum_({w},{t_id})")
+    
+    # FIX: If tensor fits in Row Buffer, Outer Loops do NOT cause thrashing (assuming separate banks).
+    # In this case, row_acts = base_row_acts (which is streaming_cost = 1).
+    if tensor_bytes <= row_buffer_size_bytes:
+        model.addConstr(log_row_acts == log_base, name=f"C_log_row_acts_sum_({w},{t_id})")
+    else:
+        model.addConstr(log_row_acts == log_base + log_outer_irr, name=f"C_log_row_acts_sum_({w},{t_id})")
     
     # exp back to get row_acts
     row_acts = model.addVar(lb=1, ub=row_acts_ub, name=f"row_acts_({w},{t_id})")
@@ -1451,8 +1399,13 @@ def build_row_activation_model(
                 inclusion_vars=None # Use default xj=1
             )
             
-            log_aligned_total = log_relevant_expr + log_outer_irr
-            max_aligned = max_relevant * max_outer_irr
+            # FIX: If tensor fits in Row Buffer, Outer Loops do NOT cause thrashing.
+            if tensor_bytes <= row_buffer_bytes:
+                log_aligned_total = log_relevant_expr
+                max_aligned = max_relevant
+            else:
+                log_aligned_total = log_relevant_expr + log_outer_irr
+                max_aligned = max_relevant * max_outer_irr
             
             row_acts_aligned = _build_exp_var_from_log(
                 model, log_aligned_total, max_aligned, f"row_acts_row_aligned_({w},{t_id})", PWL_OPTS

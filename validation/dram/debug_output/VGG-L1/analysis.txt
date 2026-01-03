@@ -41,7 +41,7 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
 ====================================================================================================
 
   Solver Status: optimal
-  Solve Time: 4.46s
+  Solve Time: 8.35s
 
 ====================================================================================================
 3. MAPPING DETAILS
@@ -50,7 +50,7 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
   Layout:
     Input:  row_aligned
     Weight: sequential
-    Output: row_aligned
+    Output: sequential
 
   Tile Info:
     block_h: 29
@@ -60,34 +60,34 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
   Memory Hierarchy: Level 0=PE, Level 1=GlobalBuffer, Level 2=RowBuffer, Level 3=LocalDRAM
 
     Level 0:
-      H: {'R': 3, 'K': 4}
-      W: {'P': 2, 'Q': 8}
+      H: {'K': 16}
+      W: {'P': 2, 'Q': 4}
       Internal: (all 1s)
-      temporal: (all 1s)
+      temporal: {'R': 3, 'S': 3, 'Q': 2}
 
     Level 1:
       spatial: (all 1s)
-      temporal: {'S': 3}
+      temporal: (all 1s)
 
     Level 2:
       spatial: (all 1s)
-      temporal: {'K': 16}
+      temporal: {'K': 2}
 
     Level 3:
       spatial: (all 1s)
-      temporal: {'P': 28, 'Q': 7, 'C': 3}
+      temporal: {'P': 28, 'Q': 7, 'C': 3, 'K': 2}
 
   Permutation (per memory level, inner to outer):
-    Level 0: 
-    Level 1: S
+    Level 0: S -> Q -> R
+    Level 1: 
     Level 2: K
-    Level 3: C -> P -> Q
+    Level 3: C -> P -> Q -> K
 
   Tile Sizes (cumulative up to each level):
-    Level 0: (all 1s)
-    Level 1: {'S': 3}
-    Level 2: {'S': 3, 'K': 16}
-    Level 3: {'S': 3, 'P': 28, 'Q': 7, 'C': 3, 'K': 16}
+    Level 0: {'R': 3, 'S': 3, 'Q': 2}
+    Level 1: {'R': 3, 'S': 3, 'Q': 2}
+    Level 2: {'R': 3, 'S': 3, 'Q': 2, 'K': 2}
+    Level 3: {'R': 3, 'S': 3, 'P': 28, 'Q': 14, 'C': 3, 'K': 4}
 
 ====================================================================================================
 4. DRAM LEVEL ANALYSIS (Level 2 + Level 3)
@@ -99,36 +99,37 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
     P: 28
     Q: 7
     C: 3
-    K: 16
+    K: 4
     N: 1
 
   Reuse Penalty per Tensor (irrelevant DRAM factors):
-    Input: irrelevant dims = ['K'], penalty = 16
+    Input: irrelevant dims = ['K'], penalty = 4
     Weight: irrelevant dims = ['P', 'Q', 'N'], penalty = 196
     Output: irrelevant dims = ['R', 'S', 'C'], penalty = 3
 
   Expected Unique Row Activations (simplified):
     For row_aligned: total_tiles = Π(DRAM factors)
-    Total DRAM tiles: 9408
+    Total DRAM tiles: 2352
 
 ====================================================================================================
 5. ILP ROW ACTIVATION PREDICTIONS
 ====================================================================================================
 
   ILP Predicted Row Activations:
-    Input:  684.0000
-    Weight: 661.5000
-    Output: 196.0000
-    Total:  1541.5000
+    Input:  1182.0000
+    Weight: 330.7501
+    Output: 196.0001
+    Total:  1708.7502
 
 ====================================================================================================
 5.1 ILP VARIABLE VALUES
 ====================================================================================================
 
   xp[m=3] - Permutation at DRAM level (which dim at which position):
-    Position 3: C
-    Position 5: P
-    Position 6: Q
+    Position 2: C
+    Position 3: P
+    Position 5: Q
+    Position 6: K
 
   xb[m=3, s=1] - DRAM temporal bounds:
     R: divisor[0] = 1
@@ -136,7 +137,7 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
     P: divisor[6] = 28
     Q: divisor[3] = 7
     C: divisor[1] = 3
-    K: divisor[0] = 1
+    K: divisor[1] = 2
     N: divisor[0] = 1
 
   xr[m=2, m_=3] - Relevant inner loop exists at position p:
@@ -152,8 +153,8 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
 
     Weight:
       Position 0: xr = 0
-      Position 1: xr = 0
-      Position 2: xr = 0
+      Position 1: xr = 1
+      Position 2: xr = 1
       Position 3: xr = 1
       Position 4: xr = 1
       Position 5: xr = 1
@@ -163,8 +164,8 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
       Position 0: xr = 0
       Position 1: xr = 0
       Position 2: xr = 0
-      Position 3: xr = 0
-      Position 4: xr = 0
+      Position 3: xr = 1
+      Position 4: xr = 1
       Position 5: xr = 1
       Position 6: xr = 1
 
@@ -176,7 +177,7 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
       P: xj = 1 (relevant)
       Q: xj = 1 (relevant)
       C: xj = 1 (relevant)
-      K: xj = 0 (irrelevant)
+      K: xj = 1 (irrelevant)
       N: xj = 0 (relevant)
 
     Weight (relevant dims: ['R', 'S', 'C', 'K']):
@@ -185,7 +186,7 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
       P: xj = 1 (irrelevant)
       Q: xj = 1 (irrelevant)
       C: xj = 1 (relevant)
-      K: xj = 0 (relevant)
+      K: xj = 1 (relevant)
       N: xj = 0 (irrelevant)
 
     Output (relevant dims: ['P', 'Q', 'K', 'N']):
@@ -194,13 +195,13 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
       P: xj = 1 (relevant)
       Q: xj = 1 (relevant)
       C: xj = 0 (irrelevant)
-      K: xj = 0 (relevant)
+      K: xj = 1 (relevant)
       N: xj = 0 (relevant)
 
   Manual row_acts_aligned calculation (for verification):
-    Input: P=28 × Q=7 × C=3 = 588
-    Weight: P=28 × Q=7 × C=3 = 588
-    Output: P=28 × Q=7 = 196
+    Input: P=28 × Q=7 × C=3 × K=2 = 1176
+    Weight: P=28 × Q=7 × C=3 × K=2 = 1176
+    Output: P=28 × Q=7 × K=2 = 392
 
 ====================================================================================================
 5.2 DETAILED ROW ACTIVATION ILP VARIABLES
@@ -210,10 +211,10 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
   Tensor: Input
   ============================================================
 
-    2. Row Acts (Row-Aligned mode): 588.0000
+    2. Row Acts (Row-Aligned mode): 1176.0000
        (Π {all dims with xj=1} bound_j)
 
-    4. Outer Irrelevant Product: 1.0000
+    4. Outer Irrelevant Product: 4.0000
        (Π {outer irrelevant dims with xj=1} bound_j)
 
     5. Row Acts (Sequential final): 9408.0000
@@ -222,83 +223,83 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
     6. Sequential Part (conditional): 0.0000
        ((1 - row_aligned) × row_acts_seq)
 
-    7. Row-Aligned Part (conditional): 588.0000
+    7. Row-Aligned Part (conditional): 1176.0000
        (row_aligned × row_acts_row_aligned)
 
-    8. Input Block Crossing Acts: 64.0000
+    8. Input Block Crossing Acts: 4.0000
        (2 × selected_count × reuse_penalty)
        - Selected IBC Count: 2.0000
-       - aux_ibc_rp (selected_count × reuse_penalty): 32.0000
+       - aux_ibc_rp (selected_count × reuse_penalty): 2.0000
 
-    9. Total Row Acts: 684.0000
+    9. Total Row Acts: 1182.0000
        (seq_part + aligned_part + block_crossing)
 
-    10. Scaled Row Acts: 1.2375
+    10. Scaled Row Acts: 2.1384
         (total_row_acts × macs_scale_factor)
 
-    11. Row Acts Cycles: 30.9369
+    11. Row Acts Cycles: 53.4611
         (scaled_acts × activation_latency)
 
   ============================================================
   Tensor: Weight
   ============================================================
 
-    2. Row Acts (Row-Aligned mode): 588.0000
+    2. Row Acts (Row-Aligned mode): 1176.0000
        (Π {all dims with xj=1} bound_j)
 
-    3. Base Row Acts (Sequential): 3.3750
+    3. Base Row Acts (Sequential): 1.6875
        (non_crossing_acts + 2 × crossing_count × reuse_penalty)
 
     4. Outer Irrelevant Product: 196.0000
        (Π {outer irrelevant dims with xj=1} bound_j)
 
-    5. Row Acts (Sequential final): 661.5000
+    5. Row Acts (Sequential final): 330.7501
        (base_row_acts × outer_irr_product)
 
-    6. Sequential Part (conditional): 661.5000
+    6. Sequential Part (conditional): 330.7501
        ((1 - row_aligned) × row_acts_seq)
 
     7. Row-Aligned Part (conditional): 0.0000
        (row_aligned × row_acts_row_aligned)
 
-    9. Total Row Acts: 661.5000
+    9. Total Row Acts: 330.7501
        (seq_part + aligned_part + block_crossing)
 
-    10. Scaled Row Acts: 1.1968
+    10. Scaled Row Acts: 0.5984
         (total_row_acts × macs_scale_factor)
 
-    11. Row Acts Cycles: 29.9192
+    11. Row Acts Cycles: 14.9596
         (scaled_acts × activation_latency)
 
   ============================================================
   Tensor: Output
   ============================================================
 
-    2. Row Acts (Row-Aligned mode): 196.0000
+    2. Row Acts (Row-Aligned mode): 392.0000
        (Π {all dims with xj=1} bound_j)
 
-    3. Base Row Acts (Sequential): 588.0000
+    3. Base Row Acts (Sequential): 196.0000
        (non_crossing_acts + 2 × crossing_count × reuse_penalty)
 
     4. Outer Irrelevant Product: 1.0000
        (Π {outer irrelevant dims with xj=1} bound_j)
 
-    5. Row Acts (Sequential final): 588.0000
+    5. Row Acts (Sequential final): 196.0001
        (base_row_acts × outer_irr_product)
 
-    6. Sequential Part (conditional): 0.0000
+    6. Sequential Part (conditional): 196.0001
        ((1 - row_aligned) × row_acts_seq)
 
-    7. Row-Aligned Part (conditional): 196.0000
+    7. Row-Aligned Part (conditional): 0.0000
        (row_aligned × row_acts_row_aligned)
 
-    9. Total Row Acts: 196.0000
+    9. Total Row Acts: 196.0001
        (seq_part + aligned_part + block_crossing)
 
     10. Scaled Row Acts: 0.3546
         (total_row_acts × macs_scale_factor)
 
-    11. Row Acts Cycles: 8.8649
+    11. Row Acts Cycles: 8.8650
         (scaled_acts × activation_latency)
 
   ============================================================
@@ -306,7 +307,7 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
   ============================================================
     Input: row_aligned
     Weight: sequential
-    Output: row_aligned
+    Output: sequential
 
 ====================================================================================================
 5.5 ADDRESS CALCULATION DETAILS
@@ -317,19 +318,21 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
     S: 3
     P: 2
     Q: 8
-    K: 4
+    K: 16
 
   DRAM Loop Structure (Level 2+3, outer to inner):
     Loops iterate using TILE INDEX (0, 1, 2, ...), NOT element coordinates
     Element coord = tile_index × tile_stride (computed at access time)
-    [0] Level 3, Q: for tile_idx in range(7)
+    [0] Level 3, K: for tile_idx in range(2)
+         tile_stride=32 → elem_coord = tile_idx × 32
+    [1] Level 3, Q: for tile_idx in range(7)
          tile_stride=8 → elem_coord = tile_idx × 8
-    [1] Level 3, P: for tile_idx in range(28)
+    [2] Level 3, P: for tile_idx in range(28)
          tile_stride=2 → elem_coord = tile_idx × 2
-    [2] Level 3, C: for tile_idx in range(3)
+    [3] Level 3, C: for tile_idx in range(3)
          tile_stride=1 → elem_coord = tile_idx × 1
-    [3] Level 2, K: for tile_idx in range(16)
-         tile_stride=4 → elem_coord = tile_idx × 4
+    [4] Level 2, K: for tile_idx in range(2)
+         tile_stride=16 → elem_coord = tile_idx × 16
 
   ======================================================================
   DEBUG: INPUT STRIDE CALCULATION DETAILS
@@ -392,29 +395,29 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
 
   Weight Address Calculation:
     Layout: sequential
-    Buffer Tile Size: 36 (K=4 × C=1 × R=3 × S=3)
+    Buffer Tile Size: 144 (K=16 × C=1 × R=3 × S=3)
     Strides:
       (L2, R): 3
       (L2, S): 1
       (L2, C): 9
       (L2, K): 9
-      (L3, R): 576
-      (L3, S): 576
-      (L3, C): 576
-      (L3, K): 576
+      (L3, R): 288
+      (L3, S): 288
+      (L3, C): 288
+      (L3, K): 864
 
   Output Address Calculation:
-    Layout: row_aligned
-    Buffer Tile Size: 64 (N=1 × K=4 × P=2 × Q=8)
+    Layout: sequential
+    Buffer Tile Size: 256 (N=1 × K=16 × P=2 × Q=8)
     Strides:
       (L2, P): 8
       (L2, Q): 1
       (L2, K): 16
       (L2, N): 16
-      (L3, P): 1024
-      (L3, Q): 28672
-      (L3, K): 1024
-      (L3, N): 1024
+      (L3, P): 512
+      (L3, Q): 14336
+      (L3, K): 100352
+      (L3, N): 512
 
   Base Addresses:
     Input:  0x00000000 (Bank 0)
@@ -604,27 +607,27 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
    10325 |   4  29 | [24,34)    |     0     1 |    4    0 |        86016      116 | 0x00015074 |    84 <-- ROW SWITCH
 
   Trace Statistics:
-    Total trace lines: 964320
+    Total trace lines: 987840
 
   Input (Bank 0):
-    Total accesses: 23520
+    Total accesses: 47040
     Unique addresses: 10092
     Unique rows: 12
     Rows accessed: [0, 1, 2, 3, 4, 5, 84, 85, 86, 87, 88, 89]
-    Row activations (switches): 1212
+    Row activations (switches): 2424
     Row visit pattern:
-      Row 0: activated 101 times
-      Row 1: activated 101 times
-      Row 2: activated 101 times
-      Row 3: activated 101 times
-      Row 4: activated 101 times
-      Row 5: activated 101 times
-      Row 84: activated 101 times
-      Row 85: activated 101 times
-      Row 86: activated 101 times
-      Row 87: activated 101 times
-      Row 88: activated 101 times
-      Row 89: activated 101 times
+      Row 0: activated 202 times
+      Row 1: activated 202 times
+      Row 2: activated 202 times
+      Row 3: activated 202 times
+      Row 4: activated 202 times
+      Row 5: activated 202 times
+      Row 84: activated 202 times
+      Row 85: activated 202 times
+      Row 86: activated 202 times
+      Row 87: activated 202 times
+      Row 88: activated 202 times
+      Row 89: activated 202 times
 
   Weight (Bank 1):
     Total accesses: 338688
@@ -919,30 +922,30 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
     73: LD 0x01000021 -> Weight Row=  0 Col=  33
     74: LD 0x01000022 -> Weight Row=  0 Col=  34
     75: LD 0x01000023 -> Weight Row=  0 Col=  35
-    76: ST 0x02000000 -> Output Row=  0 Col=   0 <-- NEW ROW
-    77: ST 0x02000001 -> Output Row=  0 Col=   1
-    78: ST 0x02000002 -> Output Row=  0 Col=   2
-    79: ST 0x02000003 -> Output Row=  0 Col=   3
-    80: ST 0x02000004 -> Output Row=  0 Col=   4
-    81: ST 0x02000005 -> Output Row=  0 Col=   5
-    82: ST 0x02000006 -> Output Row=  0 Col=   6
-    83: ST 0x02000007 -> Output Row=  0 Col=   7
-    84: ST 0x02000008 -> Output Row=  0 Col=   8
-    85: ST 0x02000009 -> Output Row=  0 Col=   9
-    86: ST 0x0200000A -> Output Row=  0 Col=  10
-    87: ST 0x0200000B -> Output Row=  0 Col=  11
-    88: ST 0x0200000C -> Output Row=  0 Col=  12
-    89: ST 0x0200000D -> Output Row=  0 Col=  13
-    90: ST 0x0200000E -> Output Row=  0 Col=  14
-    91: ST 0x0200000F -> Output Row=  0 Col=  15
-    92: ST 0x02000010 -> Output Row=  0 Col=  16
-    93: ST 0x02000011 -> Output Row=  0 Col=  17
-    94: ST 0x02000012 -> Output Row=  0 Col=  18
-    95: ST 0x02000013 -> Output Row=  0 Col=  19
-    96: ST 0x02000014 -> Output Row=  0 Col=  20
-    97: ST 0x02000015 -> Output Row=  0 Col=  21
-    98: ST 0x02000016 -> Output Row=  0 Col=  22
-    99: ST 0x02000017 -> Output Row=  0 Col=  23
+    76: LD 0x01000024 -> Weight Row=  0 Col=  36
+    77: LD 0x01000025 -> Weight Row=  0 Col=  37
+    78: LD 0x01000026 -> Weight Row=  0 Col=  38
+    79: LD 0x01000027 -> Weight Row=  0 Col=  39
+    80: LD 0x01000028 -> Weight Row=  0 Col=  40
+    81: LD 0x01000029 -> Weight Row=  0 Col=  41
+    82: LD 0x0100002A -> Weight Row=  0 Col=  42
+    83: LD 0x0100002B -> Weight Row=  0 Col=  43
+    84: LD 0x0100002C -> Weight Row=  0 Col=  44
+    85: LD 0x0100002D -> Weight Row=  0 Col=  45
+    86: LD 0x0100002E -> Weight Row=  0 Col=  46
+    87: LD 0x0100002F -> Weight Row=  0 Col=  47
+    88: LD 0x01000030 -> Weight Row=  0 Col=  48
+    89: LD 0x01000031 -> Weight Row=  0 Col=  49
+    90: LD 0x01000032 -> Weight Row=  0 Col=  50
+    91: LD 0x01000033 -> Weight Row=  0 Col=  51
+    92: LD 0x01000034 -> Weight Row=  0 Col=  52
+    93: LD 0x01000035 -> Weight Row=  0 Col=  53
+    94: LD 0x01000036 -> Weight Row=  0 Col=  54
+    95: LD 0x01000037 -> Weight Row=  0 Col=  55
+    96: LD 0x01000038 -> Weight Row=  0 Col=  56
+    97: LD 0x01000039 -> Weight Row=  0 Col=  57
+    98: LD 0x0100003A -> Weight Row=  0 Col=  58
+    99: LD 0x0100003B -> Weight Row=  0 Col=  59
 
 ====================================================================================================
 8. DISCREPANCY ANALYSIS
@@ -951,8 +954,8 @@ DETAILED DEBUG INFO FOR 'VGG-L1' WORKLOAD
   Comparison:
   Tensor     ILP             Trace           Ratio (Trace/ILP)   
   ------------------------------------------------------------
-  Input      684.00          1212            1.77                
-  Weight     661.50          392             0.59                
+  Input      1182.00         2424            2.05                
+  Weight     330.75          392             1.19                
   Output     196.00          196             1.00                
 
   Key Observations:

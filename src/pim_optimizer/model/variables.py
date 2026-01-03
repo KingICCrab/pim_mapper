@@ -75,6 +75,7 @@ class VariableSet:
     layout_choice: gp.tupledict = field(default_factory=gp.tupledict)
     xr: gp.tupledict = field(default_factory=gp.tupledict)
     xj: dict = field(default_factory=dict)
+    is_tiled: gp.tupledict = field(default_factory=gp.tupledict)
     
     # RowBuffer Input block selection
     rowbuf_input_block_h: gp.tupledict = field(default_factory=gp.tupledict)
@@ -258,3 +259,12 @@ def create_auxiliary_variables(
                         vars.xj[w, t, m, m_, j] = model.addVar(
                             vtype=gp.GRB.BINARY, name=vname
                         )
+
+    # is_tiled[w, m, j] = 1 if dimension j has tiling factor > 1 at level m
+    for w, workload in enumerate(workloads):
+        for m in range(num_mems):
+            for j, _ in enumerate(workload.bounds):
+                vname = f"IS_TILED_({w},{m},{j})"
+                vars.is_tiled[w, m, j] = model.addVar(
+                    vtype=gp.GRB.BINARY, name=vname
+                )
