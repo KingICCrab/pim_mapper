@@ -1,0 +1,262 @@
+\section{基于规约分析的布局传播优化}
+\label{sec:layout-propagation}
+
+在神经网络加速器的全局分区优化中，决策变量的数量直接影响求解效率与可扩展性。对于包含 $L$ 层、每层 $m$ 个候选分区方案的网络，ILP公式需要 $O(L \cdot m^2)$ 个变量与约束。当网络深度增加时（如ResNet-152包含超过150层），求解时间可能显著增长。本节提出基于规约分析的布局传播（Layout Propagation）技术，通过识别可共享分区的算子序列，有效减少决策变量数量，在保持优化质量的同时显著提升求解效率。
+
+\subsection{核心观察：算子的布局敏感性}
+\label{subsec:layout-sensitivity}
+
+神经网络中的算子可根据其计算特性分为两类：
+
+\begin{definition}[布局敏感性]
+根据算子是否包含规约（Reduction）操作，定义其布局敏感性：
+\begin{itemize}
+    \item \textbf{布局敏感算子}：包含跨数据元素的规约计算，数据分区方式直接影响计算的正确性与效率。
+    \item \textbf{布局不敏感算子}：仅执行逐元素（Elementwise）操作，对输入数据的分区方式无特殊要求。
+\end{itemize}
+\end{definition}
+
+\subsubsection{规约分析}
+
+规约操作是指将多个输入数据元素聚合为较少输出元素的计算模式。不同类型算子的规约特性如下：
+
+\paragraph{布局敏感算子（有规约）}
+\begin{itemize}
+    \item \textbf{卷积层（Conv）}：在输入通道维度 $C$ 和卷积核空间维度 $(R, S)$ 上执行规约：
+    \begin{equation}
+    Y[n,k,h,w] = \sum_{c=0}^{C-1} \sum_{r=0}^{R-1} \sum_{s=0}^{S-1} X[n,c,h+r,w+s] \cdot W[k,c,r,s]
+    \end{equation}
+    
+    \item \textbf{全连接层（FC）}：在输入维度上执行规约（矩阵-向量乘法）：
+    \begin{equation}
+    Y[n,k] = \sum_{c=0}^{C-1} X[n,c] \cdot W[k,c]
+    \end{equation}
+    
+    \item \textbf{池化层（Pool）}：在空间窗口内执行规约（最大或平均）：
+    \begin{equation}
+    Y[n,c,h,w] = \text{Pool}_{r,s \in \mathcal{W}} X[n,c,h \cdot s_h + r, w \cdot s_w + s]
+    \end{equation}
+    
+    \item \textbf{Softmax层}：在某一维度上执行归一化（包含求和规约）：
+    \begin{equation}
+    Y[n,c] = \frac{\exp(X[n,c])}{\sum_{c'} \exp(X[n,c'])}
+    \end{equation}
+\end{itemize}
+
+\paragraph{布局不敏感算子（无规约）}
+\begin{itemize}
+    \item \textbf{激活函数}：ReLU、Sigmoid、Tanh等逐元素非线性变换：
+    \begin{equation}
+    Y[n,c,h,w] = f(X[n,c,h,w])
+    \end{equation}
+    
+    \item \textbf{逐元素算术}：Add、Mul、Sub等逐元素二元运算：
+    \begin{equation}
+    Y[n,c,h,w] = X_1[n,c,h,w] \circ X_2[n,c,h,w]
+    \end{equation}
+    
+    \item \textbf{BatchNorm（推理阶段）}：使用预计算的统计量进行逐元素归一化：
+    \begin{equation}
+    Y[n,c,h,w] = \gamma_c \cdot \frac{X[n,c,h,w] - \mu_c}{\sqrt{\sigma_c^2 + \epsilon}} + \beta_c
+    \end{equation}
+\end{itemize}
+
+\begin{table}[htbp]
+\centering
+\caption{常见算子的规约特性与布局敏感性}
+\label{tab:operator-sensitivity}
+\begin{tabular}{lccl}
+\toprule
+\textbf{算子类型} & \textbf{有规约} & \textbf{布局敏感} & \textbf{规约维度} \\
+\midrule
+Conv, ConvLayer & \checkmark & 敏感 & $C, R, S$ \\
+FC, MatMul, Gemm & \checkmark & 敏感 & $C$ (或 $K$) \\
+Pool, MaxPool, AvgPool & \checkmark & 敏感 & $H, W$ (窗口) \\
+Softmax, ReduceSum & \checkmark & 敏感 & 指定轴 \\
+\midrule
+ReLU, Sigmoid, Tanh & $\times$ & 不敏感 & — \\
+Add, Mul, Sub, Div & $\times$ & 不敏感 & — \\
+BatchNorm (推理) & $\times$ & 不敏感 & — \\
+Concat, Split, Reshape & $\times$ & 不敏感 & — \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{布局传播原理}
+\label{subsec:propagation-principle}
+
+布局不敏感算子的关键特性在于：无论输入数据如何在处理单元间分布，其计算结果均保持正确。这意味着这些算子可以"透传"上游或下游的分区方案，而无需引入额外的数据重分布。
+
+\begin{theorem}[分区透传性]
+设算子 $\mathcal{O}$ 为布局不敏感算子，其前驱算子 $\mathcal{O}_{prev}$ 采用分区方案 $c$，则 $\mathcal{O}$ 可直接采用方案 $c$ 而不引入层间重分布代价，当且仅当：
+\begin{enumerate}
+    \item $\mathcal{O}$ 仅执行逐元素操作（无规约）；
+    \item $\mathcal{O}_{prev}$ 的输出形状与 $\mathcal{O}$ 的输入形状一致。
+\end{enumerate}
+\end{theorem}
+
+基于此定理，我们可以将连续的布局不敏感算子序列与其相邻的布局敏感算子组合为一个"传播组"，组内所有算子共享相同的分区方案。
+
+\subsection{传播组识别算法}
+\label{subsec:propagation-algorithm}
+
+\begin{algorithm}[htbp]
+\caption{布局传播组识别算法}
+\label{alg:layout-propagation}
+\begin{algorithmic}[1]
+\REQUIRE 算子序列 $\mathcal{O} = \{o_0, o_1, \ldots, o_{L-1}\}$，邻接关系 $\mathcal{A}$
+\ENSURE 传播组集合 $\mathcal{G} = \{G_0, G_1, \ldots\}$
+
+\STATE $\mathcal{G} \leftarrow \emptyset$
+\STATE $\text{assigned} \leftarrow \emptyset$
+
+\STATE \textbf{// 识别所有布局敏感算子作为锚点}
+\STATE $\text{anchors} \leftarrow \{i : o_i.\text{has\_reduction} = \text{true}\}$
+
+\FOR{each $a \in \text{anchors}$}
+    \IF{$a \in \text{assigned}$}
+        \STATE \textbf{continue}
+    \ENDIF
+    
+    \STATE $G \leftarrow \{a\}$
+    \STATE $\text{assigned} \leftarrow \text{assigned} \cup \{a\}$
+    
+    \STATE \textbf{// 向下游传播}
+    \STATE $\text{queue} \leftarrow [a]$
+    \WHILE{$\text{queue} \neq \emptyset$}
+        \STATE $\text{current} \leftarrow \text{queue.pop()}$
+        \FOR{each $\text{next} \in \mathcal{A}[\text{current}]$}
+            \IF{$\text{next} \notin \text{assigned}$ \AND $o_{\text{next}}.\text{has\_reduction} = \text{false}$}
+                \IF{$\text{ShapeCompatible}(o_{\text{current}}, o_{\text{next}})$}
+                    \STATE $G \leftarrow G \cup \{\text{next}\}$
+                    \STATE $\text{assigned} \leftarrow \text{assigned} \cup \{\text{next}\}$
+                    \STATE $\text{queue.append}(\text{next})$
+                \ENDIF
+            \ENDIF
+        \ENDFOR
+    \ENDWHILE
+    
+    \STATE $\mathcal{G} \leftarrow \mathcal{G} \cup \{G\}$
+\ENDFOR
+
+\RETURN $\mathcal{G}$
+\end{algorithmic}
+\end{algorithm}
+
+该算法的核心思想是：
+\begin{enumerate}
+    \item 以每个布局敏感算子为锚点初始化传播组；
+    \item 从锚点出发，通过BFS向下游扩展，将所有形状兼容的布局不敏感算子纳入同一组；
+    \item 遇到下一个布局敏感算子时停止扩展，该算子将成为新组的锚点。
+\end{enumerate}
+
+\subsection{对全局分区优化的影响}
+\label{subsec:optimization-impact}
+
+\subsubsection{决策变量缩减}
+
+通过布局传播，原本需要为每层独立设置决策变量的ILP问题可以简化。设网络包含 $L$ 层，其中 $G$ 个传播组（$G \leq L$），则：
+
+\begin{equation}
+\text{原始变量数：} L \times m \quad \Rightarrow \quad \text{优化后：} G \times m
+\end{equation}
+
+组内的布局不敏感算子自动继承锚点算子的分区方案，无需独立决策。
+
+\subsubsection{重分布代价消除}
+
+传播组内的算子共享相同分区，因此组内相邻层之间无需数据重分布：
+
+\begin{equation}
+\text{Redist}(o_i, o_j) = 0, \quad \forall o_i, o_j \in G_k
+\end{equation}
+
+重分布代价仅在组与组之间的边界产生，即布局敏感算子之间的转换点。
+
+\subsubsection{实际优化效果}
+
+以典型网络结构为例分析变量缩减效果：
+
+\begin{table}[htbp]
+\centering
+\caption{布局传播优化效果}
+\label{tab:propagation-effect}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{网络} & \textbf{总层数 $L$} & \textbf{传播组数 $G$} & \textbf{缩减比例} & \textbf{敏感层} & \textbf{不敏感层} \\
+\midrule
+VGG-16 & 38 & 16 & 57.9\% & 16 & 22 \\
+ResNet-50 & 107 & 53 & 50.5\% & 53 & 54 \\
+ResNet-152 & 311 & 152 & 51.1\% & 152 & 159 \\
+MobileNet-V2 & 155 & 52 & 66.5\% & 52 & 103 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+在MobileNet等大量使用深度可分离卷积和逐元素操作的网络中，布局传播的效果尤为显著，可减少超过60\%的决策变量。
+
+\subsection{修改后的ILP公式}
+\label{subsec:modified-ilp}
+
+引入传播组后，全局分区优化的ILP公式可修改为：
+
+\begin{definition}[组级决策变量]
+定义组级二元决策变量 $x_{g,c}$：
+\begin{equation}
+x_{g,c} = 
+\begin{cases}
+1 & \text{若传播组 } g \text{ 选择分区方案 } c \\
+0 & \text{否则}
+\end{cases}
+\end{equation}
+其中 $g \in \{0, 1, \ldots, G-1\}$，$c \in \mathcal{C}_g$。
+\end{definition}
+
+修改后的目标函数为：
+\begin{equation}
+\min \sum_{g=0}^{G-1} \sum_{c \in \mathcal{C}_g} x_{g,c} \cdot \text{GroupComp}(g, c) 
++ \sum_{g=0}^{G-2} \sum_{c_i \in \mathcal{C}_g} \sum_{c_j \in \mathcal{C}_{g+1}} y_{g,c_i,c_j} \cdot \text{Redist}(g, c_i, c_j)
+\end{equation}
+
+其中：
+\begin{itemize}
+    \item $\text{GroupComp}(g, c) = \sum_{l \in G_g} \text{Comp}(l, c)$ 为组内所有层的计算代价之和；
+    \item 重分布代价仅在相邻传播组的边界计算。
+\end{itemize}
+
+\subsection{与算子融合的关系}
+\label{subsec:operator-fusion}
+
+布局传播与编译器优化中的算子融合（Operator Fusion）具有密切关联：
+
+\begin{itemize}
+    \item \textbf{融合候选识别}：传播组内的算子天然适合融合，因为它们共享相同的数据分区，无需中间数据重分布。
+    
+    \item \textbf{内存访问优化}：融合后的算子序列可以避免中间结果写回主存，提高数据局部性。
+    
+    \item \textbf{调度简化}：组内算子可作为整体进行调度，减少同步点数量。
+\end{itemize}
+
+典型的融合模式包括：
+\begin{itemize}
+    \item Conv + BatchNorm + ReLU（CBR融合）
+    \item FC + ReLU
+    \item Add + ReLU（残差连接）
+\end{itemize}
+
+\subsection{小结}
+\label{subsec:propagation-summary}
+
+布局传播技术通过规约分析识别算子的布局敏感性，将可共享分区的算子聚合为传播组，从而：
+
+\begin{enumerate}
+    \item \textbf{减少决策变量}：从 $O(L \cdot m)$ 降至 $O(G \cdot m)$，典型网络可缩减50\%-65\%。
+    
+    \item \textbf{消除组内重分布}：传播组内的算子无需层间数据交换，降低通信开销。
+    
+    \item \textbf{加速ILP求解}：更少的变量与约束使求解器能够更快收敛。
+    
+    \item \textbf{指导算子融合}：传播组为编译器的算子融合优化提供天然的候选集合。
+\end{enumerate}
+
+该技术是全局分区优化框架的重要组成部分，在不损失优化质量的前提下显著提升了方法的可扩展性。

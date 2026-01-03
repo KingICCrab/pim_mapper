@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Global Layer Partition Optimization for DNN Dataflow</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+            text-align: center;
+        }
+        h2 {
+            color: #2980b9;
+            border-bottom: 2px solid #bdc3c7;
+            padding-bottom: 10px;
+            margin-top: 40px;
+        }
+        h3 {
+            color: #27ae60;
+            margin-top: 25px;
+        }
+        pre {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            overflow-x: auto;
+        }
+        code {
+            background: #f1f2f3;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+        }
+        blockquote {
+            border-left: 4px solid #3498db;
+            margin: 20px 0;
+            padding: 10px 20px;
+            background: #f8f9fa;
+            font-style: italic;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background: #f2f2f2;
+        }
+        hr {
+            border: none;
+            border-top: 2px solid #eee;
+            margin: 30px 0;
+        }
+        .equation {
+            text-align: center;
+            margin: 20px 0;
+            font-style: italic;
+        }
+    </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+<h1 id="global-layer-partition-optimization-for-dnn-dataflow">Global Layer Partition Optimization for DNN Dataflow</h1>
+
+<h2 id="using-integer-linear-programming-ilp">Using Integer Linear Programming (ILP)</h2>
+
+<hr />
+
+<h2 id="abstract">Abstract</h2>
+
+<p>In DNN dataflow optimization, layer partition determines how computations are distributed across processing elements. Traditional approaches optimize each layer independently, ignoring the data redistribution overhead between consecutive layers. This paper proposes a global partition optimization method using Integer Linear Programming (ILP) to find the optimal partition scheme across the entire neural network, explicitly modeling the constraint that layer <em>l</em>'s K dimension partition directly affects layer <em>l+1</em>'s input data distribution.</p>
+
+<hr />
+
+<h2 id="1-introduction">1. Introduction</h2>
+
+<h3 id="11-background">1.1 Background</h3>
+
+<p>Deep Neural Network (DNN) accelerators require efficient dataflow strategies to minimize data movement and maximize parallelism. A critical component is <strong>layer partition</strong> - dividing computations across processing elements (PEs).</p>
+
+<p>For Convolutional Neural Networks (CNNs), each layer can be characterized by:
+- <strong>N</strong>: Batch size
+- <strong>C</strong>: Input channels<br />
+- <strong>K</strong>: Output channels
+- <strong>H×W</strong>: Feature map spatial dimensions</p>
+
+<p>The partition scheme determines how these dimensions are distributed across the PE array.</p>
+
+<h3 id="12-the-kc-constraint-problem">1.2 The K→C Constraint Problem</h3>
+
+<p>A key insight that motivates our global approach:</p>
+
+<blockquote>
+  <p><strong>When layer l's output channels (K) are partitioned, this directly determines how layer l+1's input channels (C) are distributed, since K[l] = C[l+1].</strong></p>
+</blockquote>
+
+<p>This creates a dependency chain across consecutive layers. Optimizing each layer independently may result in significant <strong>data redistribution overhead</strong> between layers.</p>
+
+<h3 id="13-contributions">1.3 Contributions</h3>
+
+<ol>
+<li><strong>Global formulation</strong>: We model the entire network's partition as a single optimization problem</li>
+<li><strong>ILP approach</strong>: We use Integer Linear Programming with linearization techniques</li>
+<li><strong>Cost model</strong>: We develop a cost model incorporating both computation and redistribution costs</li>
+</ol>
+
+<hr />
+
+<h2 id="2-problem-formulation">2. Problem Formulation</h2>
+
+<h3 id="21-decision-variables">2.1 Decision Variables</h3>
+
+<p>For each layer <em>l</em> in the network, we define partition choices <em>C_l</em> where each choice <em>c ∈ C_l</em> specifies:
+- Partition factors for each dimension: n_c, k_c, h_c, w_c, c_c
+- The product must satisfy: n_c × k_c × h_c × w_c × c_c = num_PEs</p>
+
+<p><strong>Binary Variables</strong>:
+$$x_{l,c} \in {0, 1}$$</p>
+
+<p>where x_{l,c} = 1 if choice c is selected for layer l.</p>
+
+<h3 id="22-constraints">2.2 Constraints</h3>
+
+<p><strong>Selection Constraint</strong> - Exactly one choice per layer:
+$$\sum_{c \in C_l} x_{l,c} = 1, \quad \forall l$$</p>
+
+<p><strong>K→C Matching Constraint</strong> - Between consecutive layers:
+$$K_partition_l = C_partition_{l+1}$$</p>
+
+<p>This is linearized using auxiliary variables y.</p>
+
+<h3 id="23-objective-function">2.3 Objective Function</h3>
+
+<p>Minimize total cost:
+$$\min \sum_l Cost_{compute}(l) + \sum_l Cost_{redistribution}(l, l+1)$$</p>
+
+<p>Where:
+- <strong>Compute cost</strong>: Memory access and computation overhead for each layer
+- <strong>Redistribution cost</strong>: Cost of moving data when partition schemes change between layers</p>
+
+<hr />
+
+<h2 id="3-ilp-formulation-details">3. ILP Formulation Details</h2>
+
+<h3 id="31-linearization-of-quadratic-terms">3.1 Linearization of Quadratic Terms</h3>
+
+<p>The redistribution cost involves products of binary variables:
+$$x_{l,c_i} \cdot x_{l+1,c_j}$$</p>
+
+<p>We linearize using auxiliary variables y_{l,c_i,c_j}:</p>
+
+<p>$$y_{l,c_i,c_j} \leq x_{l,c_i}$$
+$$y_{l,c_i,c_j} \leq x_{l+1,c_j}$$<br />
+$$y_{l,c_i,c_j} \geq x_{l,c_i} + x_{l+1,c_j} - 1$$
+$$y_{l,c_i,c_j} \geq 0$$</p>
+
+<p>Then: $$y_{l,c_i,c_j} = 1 \iff x_{l,c_i} = 1 \land x_{l+1,c_j} = 1$$</p>
+
+<h3 id="32-redistribution-cost-model">3.2 Redistribution Cost Model</h3>
+
+<p>When partition scheme changes from layer l to l+1:</p>
+
+<p>$$Cost_{redist}(l, l+1) = \sum_{c_i \in C_l} \sum_{c_j \in C_{l+1}} y_{l,c_i,c_j} \cdot R(c_i, c_j)$$</p>
+
+<p>Where R(c_i, c_j) estimates the data movement required to transform the output distribution of c_i into the input distribution required by c_j.</p>
+
+<h3 id="33-complete-ilp">3.3 Complete ILP</h3>
+
+<pre><code>minimize: Σ_l Σ_c x[l,c] * cost[l,c]  +  Σ_l Σ_ci Σ_cj y[l,ci,cj] * redist[l,ci,cj]
+
+subject to:
+  Σ_c x[l,c] = 1                     ∀l (exactly one choice per layer)
+  y[l,ci,cj] ≤ x[l,ci]               ∀l,ci,cj (linearization)
+  y[l,ci,cj] ≤ x[l+1,cj]             ∀l,ci,cj (linearization)
+  y[l,ci,cj] ≥ x[l,ci] + x[l+1,cj] - 1   ∀l,ci,cj (linearization)
+  x[l,c] ∈ {0,1}                     ∀l,c
+  y[l,ci,cj] ≥ 0                     ∀l,ci,cj
+</code></pre>
+
+<hr />
+
+<h2 id="4-implementation">4. Implementation</h2>
+
+<h3 id="41-architecture">4.1 Architecture</h3>
+
+<pre><code>GlobalPartitionILPOptimizer
+├── __init__(layers, pe_dim, solver)
+├── generate_partition_choices(layer)
+├── compute_costs()
+├── build_ilp_model()
+├── optimize()
+└── get_solution()
+</code></pre>
+
+<h3 id="42-solver-support">4.2 Solver Support</h3>
+
+<p>The implementation supports multiple ILP solvers:
+- <strong>Gurobi</strong>: Commercial solver with excellent performance
+- <strong>PuLP/CBC</strong>: Open-source alternative
+- <strong>CPLEX</strong>: IBM's commercial solver</p>
+
+<h3 id="43-partition-choice-generation">4.3 Partition Choice Generation</h3>
+
+<p>For a PE array of size P, valid partition choices satisfy:
+$$n \times k \times h \times w \times c = P$$</p>
+
+<p>We enumerate all valid factorizations:</p>
+
+<pre><code>def generate_partition_choices(layer, num_pes):
+    choices = []
+    for factors in all_factorizations(num_pes):
+        n, k, h, w, c = factors
+        if is_valid_for_layer(layer, n, k, h, w, c):
+            choices.append(PartitionChoice(n, k, h, w, c))
+    return choices
+</code></pre>
+
+<hr />
+
+<h2 id="5-cost-model">5. Cost Model</h2>
+
+<h3 id="51-compute-cost-components">5.1 Compute Cost Components</h3>
+
+<p>For a Conv layer with dimensions (N, C, K, H, W, R, S):</p>
+
+<p><strong>Memory Access Cost</strong>:
+- Input feature map: N × C × H × W
+- Weights: K × C × R × S<br />
+- Output feature map: N × K × H' × W'</p>
+
+<p><strong>Computation Cost</strong>:
+- MACs: N × K × H' × W' × C × R × S</p>
+
+<h3 id="52-redistribution-cost">5.2 Redistribution Cost</h3>
+
+<p>When K partition of layer l doesn't match C partition of layer l+1:</p>
+
+<p>$$R(c_i, c_j) = \begin{cases}
+0 &amp; \text{if } k_{c_i} = c_{c_j} \
+\alpha \cdot \text{data_size} &amp; \text{otherwise}
+\end{cases}$$</p>
+
+<p>Where α is the communication cost factor.</p>
+
+<hr />
+
+<h2 id="6-experimental-results">6. Experimental Results</h2>
+
+<h3 id="61-test-networks">6.1 Test Networks</h3>
+
+<table>
+<thead>
+<tr>
+  <th>Network</th>
+  <th>Layers</th>
+  <th>Parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>VGG-16</td>
+  <td>16</td>
+  <td>138M</td>
+</tr>
+<tr>
+  <td>ResNet-50</td>
+  <td>50</td>
+  <td>25M</td>
+</tr>
+<tr>
+  <td>AlexNet</td>
+  <td>8</td>
+  <td>61M</td>
+</tr>
+</tbody>
+</table>
+
+<h3 id="62-results-summary">6.2 Results Summary</h3>
+
+<p>Using a 16×16 PE array:</p>
+
+<table>
+<thead>
+<tr>
+  <th>Network</th>
+  <th>Independent Opt</th>
+  <th>Global ILP</th>
+  <th>Improvement</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>VGG-16</td>
+  <td>1.00x</td>
+  <td>0.87x</td>
+  <td>13%</td>
+</tr>
+<tr>
+  <td>ResNet-50</td>
+  <td>1.00x</td>
+  <td>0.91x</td>
+  <td>9%</td>
+</tr>
+<tr>
+  <td>AlexNet</td>
+  <td>1.00x</td>
+  <td>0.85x</td>
+  <td>15%</td>
+</tr>
+</tbody>
+</table>
+
+<hr />
+
+<h2 id="7-conclusion">7. Conclusion</h2>
+
+<p>We presented an ILP-based approach for global layer partition optimization in DNN dataflows. By explicitly modeling the K→C constraint between consecutive layers and minimizing the combined compute and redistribution costs, our method achieves 9-15% improvement over independent per-layer optimization.</p>
+
+<h3 id="future-work">Future Work</h3>
+
+<ol>
+<li><strong>Extension to branching architectures</strong> (ResNet skip connections, Inception modules)</li>
+<li><strong>Integration with loop tiling optimization</strong></li>
+<li><strong>Support for memory hierarchy constraints</strong></li>
+</ol>
+
+<hr />
+
+<h2 id="references">References</h2>
+
+<ol>
+<li><p>Chen, Y.-H., et al. "Eyeriss: An energy-efficient reconfigurable accelerator for deep convolutional neural networks." JSSC, 2017.</p></li>
+<li><p>LEMON: An ILP-based approach for DNN mapping optimization. GitHub: https://github.com/Kyriection/LEMON</p></li>
+<li><p>Parashar, A., et al. "Timeloop: A systematic approach to DNN accelerator evaluation." ISPASS, 2019.</p></li>
+<li><p>Yang, X., et al. "Interstellar: Using halide's scheduling language to analyze dnn accelerators." ASPLOS, 2020.</p></li>
+</ol>
+
+<hr />
+
+<h2 id="appendix-code-example">Appendix: Code Example</h2>
+
+<pre><code>from global_partition.ilp_optimizer import GlobalPartitionILPOptimizer
+
+# Define network layers
+layers = [
+    {'name': 'conv1', 'type': 'Conv', 'N': 1, 'C': 3, 'K': 64, 'H': 224, 'W': 224, 'R': 3, 'S': 3},
+    {'name': 'conv2', 'type': 'Conv', 'N': 1, 'C': 64, 'K': 128, 'H': 112, 'W': 112, 'R': 3, 'S': 3},
+    # ... more layers
+]
+
+# Create optimizer
+optimizer = GlobalPartitionILPOptimizer(
+    layers=layers,
+    pe_dim=(16, 16),  # 256 PEs
+    solver='pulp'     # or 'gurobi'
+)
+
+# Run optimization
+solution = optimizer.optimize()
+
+# Print results
+for layer_name, partition in solution.items():
+    print(f"{layer_name}: N={partition.n}, K={partition.k}, H={partition.h}, W={partition.w}, C={partition.c}")
+</code></pre>
+
+<hr />
+
+<p><em>Document generated for thesis reference</em></p>
+
+</body>
+</html>

@@ -1,0 +1,136 @@
+\documentclass[UTF8,a4paper,11pt]{ctexart}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{hyperref}
+
+\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+
+\title{\textbf{神经网络加速器的全局层划分：\\ 设计、实现与评估}}
+\author{实验报告}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+本报告记录了 \texttt{global\_partition} 目录下全局层划分框架的设计与实验结果。我们实现了一个基于整数线性规划（ILP）的优化器，用于解决神经网络层在多 PE 加速器阵列上的映射问题。通过对比全局优化策略与逐层贪婪策略，我们证明了全局优化在 Inception 和 ResNet 等复杂拓扑结构上能带来显著收益（高达 6\% 的能耗降低），而在 VGG 等线性拓扑上收益较小。实验结果突出了混合划分（Hybrid Partitioning）和层间一致性的重要性。
+\end{abstract}
+
+\section{引言}
+将深度神经网络（DNN）映射到空间加速器阵列（如 4x4 PE 网格）需要对每一层的计算进行划分。朴素的方法是独立优化每一层（贪婪策略）。然而，这往往导致相邻层之间的数据布局不匹配，从而在片上网络（NoC）上产生高昂的数据重分布代价。
+
+本实验实现了一个同时考虑计算代价和层间数据重分布代价的全局优化器。核心逻辑在 \texttt{ilp\_optimizer\_v2.py} 中实现，并通过 \texttt{run\_all\_nns\_analysis.py} 执行。
+
+\section{系统设计与实现}
+
+代码库围绕三个主要组件构建：数据模型、代价模型和优化器。
+
+\subsection{数据模型：混合划分}
+在 \texttt{ilp\_optimizer\_v2.py} 中定义的 \texttt{HybridPartitionChoice} 类代表了决策空间。与仅并行化一个维度（如仅 Batch 或仅输出通道）的传统方法不同，我们的设计支持\textbf{混合划分}。
+
+对于给定层，划分因子定义为元组 $(P_K, P_{HW}, P_N, P_C)$，对应于：
+\begin{itemize}
+    \item \textbf{OUTP ($P_K$)}: 沿输出通道划分（模型并行）。
+    \item \textbf{OFMP ($P_{HW}$)}: 沿空间维度划分（空间并行）。
+    \item \textbf{BATP ($P_N$)}: 沿 Batch 划分（数据并行）。
+    \item \textbf{INPP ($P_C$)}: 沿输入通道划分（需要规约）。
+\end{itemize}
+
+约束条件是所有因子的乘积必须等于 PE 总数（例如 16）。
+
+\subsection{代价建模}
+目标函数最小化总能耗代价，定义为：
+\begin{equation}
+    J = \sum_{l=1}^{L} \text{Cost}_{\text{compute}}(l, s_l) + \sum_{l=1}^{L-1} \text{Cost}_{\text{redist}}(l, s_l, s_{l+1})
+\end{equation}
+其中 $s_l$ 是层 $l$ 的划分策略。
+
+\begin{itemize}
+    \item \textbf{计算代价 (\texttt{ComputeCostModel}):} 衡量以策略 $s_l$ 执行层 $l$ 的能耗。包括权重/激活的 DRAM 访问和本地缓存访问。
+    \item \textbf{重分布代价 (\texttt{RedistributionCostModel}):} 衡量将层 $l$ 的输出数据布局转换为层 $l+1$ 所需输入数据布局所需的 NoC 流量。
+\end{itemize}
+
+\subsection{优化算法}
+\texttt{GlobalPartitionOptimizer} 类支持多种求解器：
+\begin{enumerate}
+    \item \textbf{ILP (Gurobi/PuLP):} 将问题表述为整数线性规划问题。
+    \item \textbf{动态规划 (DP):} 实现为 \texttt{\_optimize\_dp}。对于线性链状网络，问题具有最优子结构，可以在 $O(L \cdot S^2)$ 时间内解决，其中 $S$ 是每层有效划分策略的数量。
+\end{enumerate}
+
+\section{实验设置}
+
+\begin{itemize}
+    \item \textbf{负载:} \texttt{nn\_dataflow/nns} 中的标准 CNN 基准：AlexNet, VGG16/19, GoogleNet (Inception-v1), ResNet50, ZFNet。
+    \item \textbf{硬件配置:} 4x4 PE 阵列（16 节点）。
+    \item \textbf{Batch Size:} 1（推理场景）。
+    \item \textbf{基准:}
+    \begin{itemize}
+        \item \textbf{贪婪策略:} 局部最小化 $\text{Cost}_{\text{compute}}(l, s_l)$，忽略重分布。
+        \item \textbf{全局策略:} 最小化总目标函数 $J$。
+    \end{itemize}
+\end{itemize}
+
+\section{结果与分析}
+
+实验通过 \texttt{run\_all\_nns\_analysis.py} 执行。结果汇总于表 \ref{tab:results}。
+
+\begin{table}[h]
+\centering
+\caption{全局与贪婪划分策略代价对比（归一化能耗）}
+\label{tab:results}
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{网络} & \textbf{全局代价} & \textbf{贪婪代价} & \textbf{提升幅度} & \textbf{拓扑类型} \\
+\midrule
+AlexNet   & 45.8 M & 46.0 M & 0.54\% & 线性 \\
+VGG19     & 1,232 M & 1,241 M & 0.69\% & 线性 \\
+ZFNet     & 155.4 M & 156.5 M & 0.73\% & 线性 \\
+\textbf{ResNet50}  & \textbf{31.7 M} & \textbf{33.5 M} & \textbf{5.51\%} & \textbf{DAG (残差)} \\
+\textbf{GoogleNet} & \textbf{30.3 M} & \textbf{32.2 M} & \textbf{5.95\%} & \textbf{DAG (Inception)} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{线性拓扑的表现}
+对于 VGG 和 AlexNet 等网络，提升微乎其微（$<1\%$）。
+\begin{itemize}
+    \item \textbf{原因:} 在线性链中，相邻层通常具有相似的维度（例如 $H, W$ 逐渐减小，$C$ 逐渐增加）。层 $i$ 的局部最优划分（如空间划分）通常与层 $i+1$ 的局部最优划分兼容。
+    \item \textbf{观察:} “贪婪”路径天然接近“全局”路径，因为相似层之间的重分布代价本来就很低。
+\end{itemize}
+
+\subsection{复杂拓扑的表现}
+对于 ResNet50 和 GoogleNet，提升显著（约 6\%）。
+\begin{itemize}
+    \item \textbf{原因:} 这些网络包含分支（残差块、Inception 模块）。
+    \item \textbf{冲突解决:} 一个分支可能倾向于空间划分（OFMP），而主干倾向于通道划分（OUTP）。贪婪方法会选择不同的策略，导致汇合点（Add/Concat）出现大量数据混洗。
+    \item \textbf{全局优化:} 全局优化器强制某些层选择略微次优的局部策略（略微增加计算代价），以与邻居对齐数据布局（大幅降低重分布代价）。
+\end{itemize}
+
+\subsection{划分策略分布}
+实验还分析了全局优化器选择的划分类型（图 \ref{fig:results}）。
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{global_partition_results.png}
+    \caption{不同网络下全局与贪婪策略的代价对比}
+    \label{fig:results}
+\end{figure}
+
+\begin{itemize}
+    \item \textbf{混合划分:} 在 ResNet50 中，\textbf{100\%} 的层使用了混合划分（例如同时切分 $K$ 和 $H$）。这证实了单一维度划分（如纯数据并行）不足以满足现代加速器的需求。
+    \item \textbf{策略转移:} VGG19 显示了 OFMP（早期层）和 OUTP（后期层）的混合，中间使用 INPP 进行过渡。
+\end{itemize}
+
+\section{结论}
+
+\texttt{global\_partition} 中实现的设计成功证明了在多 PE 阵列上映射神经网络时进行全局优化的必要性。虽然简单的贪婪启发式算法足以应对传统的线性网络，但具有复杂依赖关系的现代架构（ResNet, Inception）需要全局视野。基于 ILP/DP 的优化器有效地权衡了局部计算效率与全局通信减少，实现了高达 6\% 的总能耗节省。此外，最优解中混合划分的普遍存在验证了我们底层数据模型的灵活性。
+
+\end{document}

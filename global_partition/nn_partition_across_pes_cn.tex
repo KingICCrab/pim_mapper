@@ -1,0 +1,128 @@
+\subsection{跨处理单元的神经网络分区}
+\label{sec:nn-partition}
+
+处理单元（PE）阵列包含多个PE，每个PE拥有独立的本地存储。除了在不同PE上处理不同的神经网络或层之外，我们还可以将大型神经网络层划分到多个PE上并行处理。本节首先给出不同分区方案的分类（如图~\ref{fig:partition-taxonomy}所示），然后系统地探索并找到最优方案。
+
+\subsubsection{分区方案分类}
+
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=0.9\linewidth]{figures/partition_taxonomy.pdf}
+\caption{跨PE的层分区方案分类。(a) 批量分区将不同图像分配到各PE。(b) 特征图分区划分空间区域。(c) 输出分区划分输出通道。(d) 输入分区划分输入通道并需要规约操作。}
+\label{fig:partition-taxonomy}
+\end{figure}
+
+\textbf{批量分区（数据并行）：}最简单的方案是使用多个PE并行处理多个输入图像，有效地将一个batch分配到各PE~\cite{data-parallel}。虽然这对吞吐量有利，但要求神经网络模型在每个PE中复制，这对大型网络是显著的容量挑战。此外，并行度受batch大小限制。对于延迟敏感的实时应用，该方案吸引力较低，因为它不能改善单张图像的推理延迟。
+
+\textbf{特征图（空间）分区：}如果特征图较大（如$112 \times 112$），可以将其分割成更小的块，如图~\ref{fig:partition-taxonomy}(b)所示。更小的特征图块能更好地适配PE阵列，减少行固定数据流中的折叠需求~\cite{eyeriss}。此外，如果卷积层的输入和输出特征图使用相同的空间分区，由于2D卷积的局部性，大多数数据访问将是PE本地的。但是，卷积核权重需要在所有PE间复制。
+
+\textbf{输出分区：}由于每层通常有多个输出特征图，可以将输出特征图分配到各PE。例如，将$K$个输出特征图分成$p$组，每个PE处理$K/p$个。由于每个输出特征图使用不同的卷积核，权重可以完全分区。但由于所有输入特征图都贡献到所有输出特征图，所有输入特征图必须发送到所有PE，需要远程PE访问。
+
+\textbf{输入分区：}类似输出分区，也可以将$C$个输入特征图分配到各PE。区别在于计算发生的位置。然而，输出特征图的访问同时产生读写流量，因此比输入特征图访问更关键。因此，使用避免输出特征图远程访问的输出分区，优于避免输入特征图远程访问的输入分区。\textbf{重要的是，输入分区需要All-Reduce操作来聚合各PE的部分和}，这会引入显著的通信开销。
+
+表~\ref{tab:partition-comparison}总结了各分区方案的特点。
+
+\begin{table}[htbp]
+\centering
+\caption{分区方案比较}
+\label{tab:partition-comparison}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{方案} & \textbf{权重} & \textbf{输入特征图} & \textbf{输出特征图} & \textbf{需要规约} \\
+\midrule
+批量 (BATP) & 复制 & 分区 & 分区 & 否 \\
+空间 (OFMP) & 复制 & 分区 & 分区 & 否 \\
+输出 (OUTP) & 分区 & 广播 & 分区 & 否 \\
+输入 (INPP) & 分区 & 分区 & \textbf{All-Reduce} & \textbf{是} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{混合分区方案}
+
+先前工作~\cite{neurocube}使用简单启发式来最小化远程PE访问：卷积层使用特征图分区，全连接层使用输出分区。这个启发式不一定能带来最佳的性能和能效。除了远程访问数量，还应考虑分区方案对总内存访问数和PE寄存器文件中数据重用的影响。
+
+因为特征图分区会切分特征图，每个PE需要加载相同的卷积核到寄存器，而只在更小的特征图块上重用。相反，输出分区将整个特征图保持在一个PE中，一次加载卷积核并在整个特征图上使用，从而获得更高的权重重用率。
+
+因此，我们考虑一个\textbf{混合分区方案}，在特征图分区的优势（最小化远程访问）和输出分区的优势（更好的片上数据重用以最小化总DRAM访问）之间取得平衡。这种混合方案也符合Neurocube启发式的意图：
+\begin{itemize}
+    \item 对于常见CNN的前几层卷积，大特征图的访问占主导，权重重用不显著，应主要使用\textbf{特征图分区}。
+    \item 对于全连接层，卷积核权重远大于特征图，\textbf{输出分区}更优以最大化权重重用。
+\end{itemize}
+
+\subsubsection{成本模型}
+
+为找到最优分区方案，我们提出一个基于总内存访问能耗的成本模型：
+\begin{equation}
+E_{\text{access}} = A_{\text{DRAM}} \times e \times (1 + \beta \cdot r)
+\label{eq:access-cost}
+\end{equation}
+其中$e$是一次本地DRAM访问的能耗，$\beta$是远程PE访问的能耗惩罚因子，$r$是远程访问的比例。$A_{\text{DRAM}}$是总主存访问次数。特征图分区最小化$r$但导致更大的$A_{\text{DRAM}}$，而输出分区通过牺牲$r$来获得更小的$A_{\text{DRAM}}$。
+
+\textbf{INPP All-Reduce成本：}当使用输入通道分区（INPP）时，每个PE计算部分和，必须通过All-Reduce操作聚合：
+\begin{equation}
+E_{\text{INPP}} = D_{\text{output}} \times \frac{2(p-1)}{p} \times e_{\text{comm}}
+\label{eq:inpp-cost}
+\end{equation}
+其中$D_{\text{output}}$是输出数据量，$p$是INPP分区因子，$e_{\text{comm}}$是单位字节通信能耗。因子$\frac{2(p-1)}{p}$来自Ring All-Reduce算法（Reduce-Scatter后接All-Gather）。
+
+\subsubsection{层类型特定约束}
+
+不同层类型有不同的有效分区维度，如表~\ref{tab:layer-constraints}所示。
+
+\begin{table}[htbp]
+\centering
+\caption{不同层类型的有效分区维度}
+\label{tab:layer-constraints}
+\begin{tabular}{lccccl}
+\toprule
+\textbf{层类型} & \textbf{OUTP} & \textbf{OFMP} & \textbf{BATP} & \textbf{INPP} & \textbf{说明} \\
+\midrule
+卷积层 & \checkmark & \checkmark & \checkmark & \checkmark & 所有维度有效 \\
+全连接层 & \checkmark & $\times$ & \checkmark & \checkmark & OFMP无效（$H{=}W{=}1$） \\
+池化层 & \checkmark & \checkmark & \checkmark & $\times$ & INPP无效（无跨通道计算） \\
+逐元素层 & \checkmark & \checkmark & \checkmark & $\times$ & 无规约，透传分区 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{跨层传播}
+
+每个神经网络层都可以使用特征图分区和输出分区的组合来并行化。\textbf{相邻层是耦合的，因为前一层的分区方案决定了下一层输入特征图的布局}（见图~\ref{fig:partition-taxonomy}）。
+
+分区方案的跨层传播包括：
+\begin{enumerate}
+    \item \textbf{OUTP (K) $\rightarrow$ C：}第$l$层的输出通道分区成为第$l{+}1$层的输入通道分布。如果第$l$层使用OUTP=$p$且第$l{+}1$层使用INPP=$p$，分布匹配，无需重分布。
+    \item \textbf{OFMP (H,W) $\rightarrow$ 空间：}空间分区传播到下一层的输入空间分布，需要考虑卷积边界的halo区域。
+    \item \textbf{BATP (N) $\rightarrow$ 批量：}批量分区通常跨层匹配，无需重分布。
+    \item \textbf{INPP (C) $\rightarrow$ 规约：}输入分区需要层内All-Reduce，不影响下一层的布局。
+\end{enumerate}
+
+\subsubsection{分区探索}
+
+假设有$L$层和每层$C$种分区组合，需要考虑$C^L$种场景的总内存访问能耗成本。由于$L$可能是20到100，$C$可能是4到8，该成本是禁止性的。
+
+我们利用三种策略来降低分区探索的难度：
+
+\textbf{策略1：贪心算法。}使用贪心算法探索第$i$层的分区选项时不回溯，假设最优方案中前$i-1$层的分区独立于后续层。第一个卷积层假设只使用特征图分区。这将选择数减少到$C \times L$，在常见情况下大约几千种。
+
+\textbf{策略2：布局传播。}基于规约分析，可以减少分区决策变量：
+\begin{itemize}
+    \item \textbf{有规约的算子}（卷积、全连接、池化）$\rightarrow$ 布局敏感 $\rightarrow$ 需要独立分区决策
+    \item \textbf{无规约的算子}（逐元素操作、ReLU、Add）$\rightarrow$ 布局不敏感 $\rightarrow$ 可透传上游分区
+\end{itemize}
+
+这允许将决策变量从$L$层减少到$G$组（$G \leq L$），其中同组的层共享相同分区：
+\begin{equation}
+\text{原始变量：} L \times C \quad \Rightarrow \quad \text{优化后：} G \times C
+\end{equation}
+
+例如，在ResNet-50中，$G/L \approx 78\%$，减少22\%的决策变量。在ResNet-152中，减少可达24\%。
+
+\textbf{策略3：动态规划/整数线性规划。}对于中等规模问题，使用动态规划或整数线性规划（ILP）求解全局最优：
+\begin{equation}
+\min \sum_{l} E_{\text{compute}}(l) + \sum_{l} E_{\text{redistribute}}(l, l{+}1)
+\end{equation}
+需满足分区因子约束、总节点数约束和层类型约束。
+
+动态规划方法的复杂度为$O(L \times C^2)$，对于典型网络是可处理的。

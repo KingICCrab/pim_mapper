@@ -1,0 +1,240 @@
+%==============================================================================
+% 重分布代价函数 Redist 详细说明
+% 作为 global_partition_paper.tex 的补充章节
+%==============================================================================
+
+\subsection{重分布代价函数 $\text{Redist}(l, c_i, c_j)$ 详细定义}
+\label{subsec:redist-function}
+
+重分布代价函数 $\text{Redist}(l, c_i, c_j)$ 描述了当第 $l$ 层选择分区方案 $c_i$、第 $l+1$ 层选择分区方案 $c_j$ 时，层间数据重分布所需的通信代价。该函数是全局分区优化目标函数的关键组成部分。
+
+\subsubsection{重分布类型判定}
+
+首先定义判定函数 $\text{Type}(c_i, c_j)$，根据两个相邻分区方案确定重分布类型：
+
+\begin{equation}
+\text{Type}(c_i, c_j) = 
+\begin{cases}
+\text{NONE} & \text{if } c_i = c_j \text{ 且无维度变化} \\[2pt]
+\text{LOCAL} & \text{if } K_i = K_j \text{ 且 } H_i = H_j \text{ 且 } W_i = W_j \\[2pt]
+\text{ALL\_REDUCE} & \text{if } C_i > 1 \text{ (INPP分区需归约)} \\[2pt]
+\text{ALL\_GATHER} & \text{if } K_i > 1 \text{ 且 } K_j = 1 \\[2pt]
+\text{SCATTER} & \text{if } K_i = 1 \text{ 且 } K_j > 1 \\[2pt]
+\text{ALL\_TO\_ALL} & \text{otherwise (一般情况)}
+\end{cases}
+\label{eq:redist-type}
+\end{equation}
+
+其中 $K_i, H_i, W_i, C_i$ 分别表示方案 $c_i$ 在输出通道、高度、宽度、输入通道维度上的分区因子。
+
+\subsubsection{通信量计算}
+
+设第 $l$ 层的输出数据总量为 $D_l = N \times K_l \times H_l \times W_l \times w$，其中 $w$ 为数据位宽（字节）。各重分布类型的通信量如下：
+
+\paragraph{NONE (无需重分布)}
+当上下游分区完全兼容时，数据天然分布在正确位置，无需通信：
+\begin{equation}
+V_{\text{NONE}} = 0
+\end{equation}
+
+\paragraph{LOCAL (本地重排)}
+分区因子相同但数据布局需要本地调整：
+\begin{equation}
+V_{\text{LOCAL}} = \alpha_{\text{local}} \cdot D_l, \quad \alpha_{\text{local}} \approx 0.01
+\end{equation}
+这对应 SRAM 内的数据搬移，代价远小于片间通信。
+
+\paragraph{ALL\_GATHER (收集)}
+当上游按 $K$ 分区、下游不分区或使用不同维度分区时，需要收集分布式数据：
+\begin{equation}
+V_{\text{ALL\_GATHER}} = D_l \cdot \frac{n_i - 1}{n_i}
+\end{equation}
+其中 $n_i = \prod_d f_{i,d}$ 是方案 $c_i$ 使用的总节点数。
+
+\paragraph{SCATTER (分发)}
+当上游不分区而下游需要分区时，需要将完整数据分发到各节点：
+\begin{equation}
+V_{\text{SCATTER}} = D_l \cdot \frac{n_j - 1}{n_j}
+\end{equation}
+
+\paragraph{ALL\_TO\_ALL (全交换)}
+当两侧分区维度或因子不同时，需要全交换通信：
+\begin{equation}
+V_{\text{ALL\_TO\_ALL}} = D_l \cdot \left(1 - \frac{1}{\max(n_i, n_j)}\right)
+\end{equation}
+
+\paragraph{ALL\_REDUCE (归约)}
+当上游使用 INPP (输入通道) 分区时，每个节点计算的是部分和，需要跨节点归约：
+\begin{equation}
+V_{\text{ALL\_REDUCE}} = 2 \cdot D_l \cdot \frac{n_C - 1}{n_C}
+\label{eq:allreduce}
+\end{equation}
+其中 $n_C$ 是 INPP 分区因子，系数 2 对应 Ring AllReduce 的 reduce-scatter 和 all-gather 两个阶段。
+
+\subsubsection{时间代价模型}
+
+考虑片上网络 (NoC) 拓扑，重分布时间代价为：
+\begin{equation}
+T_{\text{redist}} = \frac{V}{B_{\text{NoC}}} \cdot h_{\text{avg}}
+\end{equation}
+其中 $B_{\text{NoC}}$ 是 NoC 带宽，$h_{\text{avg}}$ 是平均跳数。
+
+对于 Mesh 拓扑 ($\sqrt{n} \times \sqrt{n}$)：
+\begin{equation}
+h_{\text{avg}}^{\text{mesh}} = \frac{2\sqrt{n}}{3}
+\end{equation}
+
+对于 Crossbar 拓扑：
+\begin{equation}
+h_{\text{avg}}^{\text{crossbar}} = 1
+\end{equation}
+
+\subsubsection{完整的 Redist 函数定义}
+
+综合以上分析，$\text{Redist}(l, c_i, c_j)$ 的完整定义为：
+
+\begin{equation}
+\boxed{
+\text{Redist}(l, c_i, c_j) = 
+\begin{cases}
+0 & \text{Type} = \text{NONE} \\[4pt]
+\displaystyle \frac{\alpha_{\text{local}} \cdot D_l \cdot h_{\text{avg}}}{B_{\text{NoC}}} & \text{Type} = \text{LOCAL} \\[8pt]
+\displaystyle \frac{D_l \cdot (n_i - 1) \cdot h_{\text{avg}}}{n_i \cdot B_{\text{NoC}}} & \text{Type} = \text{ALL\_GATHER} \\[8pt]
+\displaystyle \frac{D_l \cdot (n_j - 1) \cdot h_{\text{avg}}}{n_j \cdot B_{\text{NoC}}} & \text{Type} = \text{SCATTER} \\[8pt]
+\displaystyle \frac{D_l \cdot (\max(n_i,n_j) - 1) \cdot h_{\text{avg}}}{\max(n_i,n_j) \cdot B_{\text{NoC}}} & \text{Type} = \text{ALL\_TO\_ALL} \\[8pt]
+\displaystyle \frac{2 \cdot D_l \cdot (n_C - 1) \cdot h_{\text{avg}}}{n_C \cdot B_{\text{NoC}}} & \text{Type} = \text{ALL\_REDUCE}
+\end{cases}
+}
+\label{eq:redist-full}
+\end{equation}
+
+\subsubsection{能耗代价模型}
+
+对于能耗优化场景，重分布能耗为：
+\begin{equation}
+E_{\text{redist}} = V \cdot h_{\text{avg}} \cdot e_{\text{hop}}
+\end{equation}
+其中 $e_{\text{hop}}$ 是每字节每跳的能耗 (pJ/byte/hop)。典型值约 1-5 pJ/byte/hop。
+
+\subsubsection{分区传播约束的影响}
+
+\textbf{关键观察}：由于分区传播约束 $K_l = C_{l+1}$，当第 $l$ 层选择 K-分区 (OUTP) 时，其输出数据天然按 C 维度分布在第 $l+1$ 层的输入侧。
+
+\begin{proposition}[分区传播降低重分布代价]
+设连续 $k$ 层都选择相同的 OUTP 分区因子 $f$，则这 $k$ 层之间的总重分布代价为：
+\begin{equation}
+\sum_{i=0}^{k-2} \text{Redist}(l+i, c, c) = 0
+\end{equation}
+即相邻层选择兼容分区可完全消除层间重分布代价。
+\end{proposition}
+
+这一性质是全局优化相比贪心方法的核心优势：通过考虑层间依赖，优化器可以找到使总重分布代价最小化的分区方案序列。
+
+\subsubsection{实现注意事项}
+
+在实际实现中，Redist 函数的计算需要：
+
+\begin{enumerate}
+    \item \textbf{层输出尺寸}：$D_l = N \times K_l \times H_l \times W_l \times w$
+    \item \textbf{分区因子提取}：从方案 $c_i, c_j$ 中提取各维度分区因子
+    \item \textbf{NoC 参数}：拓扑类型、带宽、能耗参数
+    \item \textbf{类型判定}：按式 \eqref{eq:redist-type} 判定重分布类型
+    \item \textbf{代价计算}：按式 \eqref{eq:redist-full} 计算代价
+\end{enumerate}
+
+\begin{lstlisting}[language=Python, caption=Redist 函数的 Python 实现框架]
+def redist(layer_idx, choice_i, choice_j, layers, noc_config):
+    """
+    计算层间重分布代价
+    
+    Args:
+        layer_idx: 当前层索引
+        choice_i: 当前层分区方案
+        choice_j: 下一层分区方案
+        layers: 网络层列表
+        noc_config: NoC 配置 (bandwidth, topology, energy_per_hop)
+    
+    Returns:
+        重分布代价 (时间或能耗)
+    """
+    # 1. 获取输出数据量
+    layer = layers[layer_idx]
+    D = layer.nofm * layer.hofm * layer.wofm * word_size
+    
+    # 2. 提取分区因子
+    K_i = choice_i.get_factor(PartDim.OUTP)
+    C_i = choice_i.get_factor(PartDim.INPP)
+    H_i = choice_i.get_factor(PartDim.OFMP_H)
+    W_i = choice_i.get_factor(PartDim.OFMP_W)
+    n_i = choice_i.total_nodes
+    
+    K_j = choice_j.get_factor(PartDim.OUTP)
+    n_j = choice_j.total_nodes
+    
+    # 3. 判定重分布类型
+    if C_i > 1:
+        redist_type = 'ALL_REDUCE'
+    elif K_i > 1 and K_j == K_i and H_i == H_j and W_i == W_j:
+        redist_type = 'NONE'  # 或 'LOCAL'
+    elif K_i > 1 and K_j == 1:
+        redist_type = 'ALL_GATHER'
+    elif K_i == 1 and K_j > 1:
+        redist_type = 'SCATTER'
+    else:
+        redist_type = 'ALL_TO_ALL'
+    
+    # 4. 计算代价
+    h_avg = compute_avg_hops(noc_config.topology, max(n_i, n_j))
+    B = noc_config.bandwidth
+    
+    if redist_type == 'NONE':
+        return 0
+    elif redist_type == 'LOCAL':
+        return 0.01 * D * h_avg / B
+    elif redist_type == 'ALL_GATHER':
+        return D * (n_i - 1) / n_i * h_avg / B
+    elif redist_type == 'SCATTER':
+        return D * (n_j - 1) / n_j * h_avg / B
+    elif redist_type == 'ALL_TO_ALL':
+        n = max(n_i, n_j)
+        return D * (n - 1) / n * h_avg / B
+    elif redist_type == 'ALL_REDUCE':
+        return 2 * D * (C_i - 1) / C_i * h_avg / B
+\end{lstlisting}
+
+\subsubsection{与 ILP 目标函数的结合}
+
+在 ILP 公式 \eqref{eq:ilp} 中，Redist 函数作为系数预计算并存储：
+
+\begin{equation}
+\min \ \sum_{l=0}^{L-1}\sum_{c\in\mathcal{C}_l} x_{l,c}\cdot \text{Comp}(l,c)
++\sum_{l=0}^{L-2}\sum_{c_i\in\mathcal{C}_l}\sum_{c_j\in\mathcal{C}_{l+1}} y_{l,c_i,c_j}\cdot \underbrace{\text{Redist}(l,c_i,c_j)}_{\text{预计算常数}}
+\end{equation}
+
+由于 $\text{Redist}(l,c_i,c_j)$ 仅依赖于网络结构和硬件参数，可以在构建 ILP 模型前完成所有 $O(L \cdot m^2)$ 个代价值的计算，其中 $m$ 是每层的平均候选方案数。
+
+%==============================================================================
+\subsection{Layout Transform 融合优化}
+\label{subsec:layout-fusion}
+
+除了分区重分布，层间可能还存在 \textbf{Layout 变换} (如 NCHW $\leftrightarrow$ NHWC)。
+如第 \ref{sec:ilp-optimization} 节所述，单独的 Layout Transform 算子会导致额外的 DRAM $\rightarrow$ DRAM 数据移动。
+
+优化策略是将 Layout 变换融合到 Memory Hierarchy 的数据搬移过程中：
+
+\begin{equation}
+\text{Redist}_{\text{fused}}(l, c_i, c_j, \text{layout}_i, \text{layout}_j) = 
+\text{Redist}(l, c_i, c_j) + \text{LayoutCost}(\text{layout}_i, \text{layout}_j)
+\end{equation}
+
+其中当变换融合到 DRAM $\rightarrow$ SRAM 搬移时：
+\begin{equation}
+\text{LayoutCost}_{\text{fused}} = 0 \quad \text{(无额外代价)}
+\end{equation}
+
+而单独执行时：
+\begin{equation}
+\text{LayoutCost}_{\text{separate}} = \frac{2 \cdot D_l}{B_{\text{DRAM}}} \quad \text{(读+写)}
+\end{equation}
+
+典型节省约 47.5\% 能耗（详见 Layout Propagation 模块分析）。

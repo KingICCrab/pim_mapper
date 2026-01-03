@@ -1,0 +1,41 @@
+=== Ramulator2 Build Log ===
+
+Running CMake...
+CMake stdout:
+-- The CXX compiler identification is Clang 14.0.0 with GNU-like command-line
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - done
+-- Check for working CXX compiler: C:/Program Files/LLVM/bin/clang++.exe - skipped
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Build type: Debug
+-- Configuring incomplete, errors occurred!
+
+CMake stderr:
+Configuring Ramulator ...
+Configuring yaml-cpp...
+[1/9] Creating directories for 'yaml-cpp-populate'
+[1/9] Performing download step (git clone) for 'yaml-cpp-populate'
+Error removing directory "C:/Users/36575/Projects/nn_dataflow/global_partition/layout_propagation/ramulator_experiment/ramulator2/ext/yaml-cpp".
+CMake Error at C:/Users/36575/Projects/nn_dataflow/global_partition/layout_propagation/ramulator_experiment/ramulator2_build/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/tmp/yaml-cpp-populate-gitclone.cmake:20 (message):
+  Failed to remove directory:
+  'C:/Users/36575/Projects/nn_dataflow/global_partition/layout_propagation/ramulator_experiment/ramulator2/ext/yaml-cpp'
+
+
+FAILED: yaml-cpp-populate-prefix/src/yaml-cpp-populate-stamp/yaml-cpp-populate-download C:/Users/36575/Projects/nn_dataflow/global_partition/layout_propagation/ramulator_experiment/ramulator2_build/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/src/yaml-cpp-populate-stamp/yaml-cpp-populate-download 
+C:\Windows\system32\cmd.exe /C "cd /D C:\Users\36575\Projects\nn_dataflow\global_partition\layout_propagation\ramulator_experiment\ramulator2\ext && C:\Strawberry\c\bin\cmake.exe -P C:/Users/36575/Projects/nn_dataflow/global_partition/layout_propagation/ramulator_experiment/ramulator2_build/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/tmp/yaml-cpp-populate-gitclone.cmake && C:\Strawberry\c\bin\cmake.exe -E touch C:/Users/36575/Projects/nn_dataflow/global_partition/layout_propagation/ramulator_experiment/ramulator2_build/_deps/yaml-cpp-subbuild/yaml-cpp-populate-prefix/src/yaml-cpp-populate-stamp/yaml-cpp-populate-download"
+ninja: build stopped: subcommand failed.
+
+CMake Error at C:/Strawberry/c/share/cmake-3.29/Modules/FetchContent.cmake:1714 (message):
+  Build step for yaml-cpp failed: 1
+Call Stack (most recent call first):
+  C:/Strawberry/c/share/cmake-3.29/Modules/FetchContent.cmake:1854:EVAL:2 (__FetchContent_directPopulate)
+  C:/Strawberry/c/share/cmake-3.29/Modules/FetchContent.cmake:1854 (cmake_language)
+  C:/Strawberry/c/share/cmake-3.29/Modules/FetchContent.cmake:2081 (FetchContent_Populate)
+  CMakeLists.txt:40 (FetchContent_MakeAvailable)
+
+
+
+CMake return code: 1
+
+CMake failed!

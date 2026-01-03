@@ -1,0 +1,533 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{xcolor}
+
+\geometry{margin=1in}
+
+\title{Hybrid Partition Global Optimization via Integer Linear Programming\\
+\large A Complete Mathematical Formulation for Neural Network Dataflow Mapping}
+
+\author{Global Partition Optimization Framework}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This document presents a comprehensive Integer Linear Programming (ILP) formulation for global partition optimization in neural network dataflow mapping. Unlike previous single-dimension partition models, our approach supports \textbf{hybrid partitioning} where multiple dimensions (output channels, spatial, batch, input channels) can be partitioned simultaneously. We provide complete mathematical modeling of all partition dimension propagations, including K$\rightarrow$C, spatial, batch, and input channel reduction costs.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%==============================================================================
+\section{Introduction and Motivation}
+%==============================================================================
+
+\subsection{The Global Partition Problem}
+
+In neural network accelerator mapping, \textbf{partition} refers to distributing computation across multiple processing elements (PEs) in a node array. The key insight is that partition decisions are \textbf{not independent across layers}---the output distribution of layer $l$ directly affects the input distribution of layer $l+1$.
+
+\subsection{Why Hybrid Partitioning?}
+
+The nn\_dataflow framework supports \textbf{hybrid partitioning} through its \texttt{PartitionScheme}:
+
+\begin{verbatim}
+PartitionScheme(
+    order=(pe.OFMP, pe.BATP, pe.OUTP, pe.INPP),
+    pdims=(PhyDim2(2,2), PhyDim2(2,2), PhyDim2(1,1), PhyDim2(1,1))
+)
+\end{verbatim}
+
+This allows simultaneous partitioning across multiple dimensions:
+\begin{itemize}
+    \item \textbf{OUTP}: Output channels (K) partitioned across nodes
+    \item \textbf{OFMP}: Output feature map (H$\times$W) spatially partitioned
+    \item \textbf{BATP}: Batch dimension (N) partitioned
+    \item \textbf{INPP}: Input channels (C) partitioned (requires reduction)
+\end{itemize}
+
+Each \texttt{pdims} entry is a 2D factor $(h, w)$ corresponding to the physical node array dimensions.
+
+%==============================================================================
+\section{Problem Formulation}
+%==============================================================================
+
+\subsection{Network and Hardware Model}
+
+\subsubsection{Network Parameters}
+
+Consider a neural network with $n$ layers. For each layer $l \in \{1, ..., n\}$:
+
+\begin{table}[h]
+\centering
+\caption{Layer Parameters}
+\begin{tabular}{cl}
+\toprule
+\textbf{Symbol} & \textbf{Description} \\
+\midrule
+$K_l$ & Number of output channels (filters) \\
+$C_l$ & Number of input channels \\
+$H_l, W_l$ & Output feature map height and width \\
+$R_l, S_l$ & Filter kernel height and width \\
+$N$ & Batch size (global) \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Hardware Parameters}
+
+The target hardware has a 2D node array:
+
+\begin{table}[h]
+\centering
+\caption{Hardware Parameters}
+\begin{tabular}{cl}
+\toprule
+\textbf{Symbol} & \textbf{Description} \\
+\midrule
+$N_H$ & Node array height dimension \\
+$N_W$ & Node array width dimension \\
+$P = N_H \times N_W$ & Total number of nodes \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Hybrid Partition Choice Representation}
+
+\subsubsection{Definition}
+
+A \textbf{hybrid partition choice} $c$ is defined as a tuple of 2D partition factors for each dimension:
+
+\begin{equation}
+c = \left\{ (p_d^h, p_d^w) : d \in \mathcal{D} \right\}
+\end{equation}
+
+where $\mathcal{D} = \{\text{OUTP}, \text{OFMP}, \text{BATP}, \text{INPP}\}$ is the set of partition dimensions.
+
+\subsubsection{Node Constraint}
+
+The total number of nodes used must equal the available nodes:
+
+\begin{equation}
+\prod_{d \in \mathcal{D}} (p_d^h \times p_d^w) = N_H \times N_W = P
+\end{equation}
+
+\subsubsection{Dimension Constraints}
+
+Each partition factor must divide the corresponding dimension or be approximately valid:
+
+\begin{align}
+p_{\text{OUTP}}^h \times p_{\text{OUTP}}^w &\leq K_l \\
+p_{\text{OFMP}}^h &\leq H_l, \quad p_{\text{OFMP}}^w \leq W_l \\
+p_{\text{BATP}}^h \times p_{\text{BATP}}^w &\leq N \\
+p_{\text{INPP}}^h \times p_{\text{INPP}}^w &\leq C_l
+\end{align}
+
+\subsection{Candidate Set Generation}
+
+For each layer $l$, we generate the candidate partition set $\mathcal{C}_l$ by enumerating all valid factorizations of the node array:
+
+\begin{equation}
+\mathcal{C}_l = \left\{ c : \prod_{d \in \mathcal{D}} (p_d^h \times p_d^w) = P \text{ and } c \text{ is valid for layer } l \right\}
+\end{equation}
+
+The factorization enumerates all ways to decompose $N_H$ and $N_W$ into products:
+\begin{align}
+N_H &= \prod_{d \in \mathcal{D}} p_d^h \\
+N_W &= \prod_{d \in \mathcal{D}} p_d^w
+\end{align}
+
+%==============================================================================
+\section{Decision Variables}
+%==============================================================================
+
+\subsection{Primary Decision Variables}
+
+\begin{equation}
+\boxed{x_{l,c} \in \{0, 1\}, \quad \forall l \in \{1,...,n\}, \; c \in \mathcal{C}_l}
+\end{equation}
+
+\textbf{Interpretation}: $x_{l,c} = 1$ if and only if layer $l$ uses hybrid partition choice $c$.
+
+\subsection{Auxiliary Variables for Linearization}
+
+To linearize the product $x_{l,c_i} \cdot x_{l+1,c_j}$ in the objective function, we introduce:
+
+\begin{equation}
+\boxed{y_{l,c_i,c_j} \in [0, 1], \quad \forall l \in \{1,...,n-1\}, \; c_i \in \mathcal{C}_l, \; c_j \in \mathcal{C}_{l+1}}
+\end{equation}
+
+\textbf{Interpretation}: $y_{l,c_i,c_j}$ represents the product $x_{l,c_i} \cdot x_{l+1,c_j}$, which equals 1 only when both layer $l$ uses choice $c_i$ AND layer $l+1$ uses choice $c_j$.
+
+%==============================================================================
+\section{Constraints}
+%==============================================================================
+
+\subsection{Selection Constraint}
+
+Each layer must select exactly one partition scheme:
+
+\begin{equation}
+\boxed{\sum_{c \in \mathcal{C}_l} x_{l,c} = 1, \quad \forall l \in \{1,...,n\}}
+\end{equation}
+
+\subsection{Linearization Constraints (McCormick Envelope)}
+
+For each pair of adjacent layers $(l, l+1)$ and all choice combinations $(c_i, c_j)$:
+
+\begin{equation}
+\boxed{
+\begin{aligned}
+y_{l,c_i,c_j} &\leq x_{l,c_i} \\
+y_{l,c_i,c_j} &\leq x_{l+1,c_j} \\
+y_{l,c_i,c_j} &\geq x_{l,c_i} + x_{l+1,c_j} - 1 \\
+y_{l,c_i,c_j} &\geq 0
+\end{aligned}
+}
+\end{equation}
+
+\textbf{Proof of Correctness}:
+\begin{itemize}
+    \item When $x_{l,c_i} = x_{l+1,c_j} = 1$: constraints give $y \leq 1$, $y \leq 1$, $y \geq 1$, so $y = 1$ ✓
+    \item When $x_{l,c_i} = 0$ or $x_{l+1,c_j} = 0$: $y \leq 0$ from first or second constraint, so $y = 0$ ✓
+\end{itemize}
+
+%==============================================================================
+\section{Objective Function}
+%==============================================================================
+
+\subsection{Total Cost Formulation}
+
+\begin{equation}
+\boxed{
+\min \sum_{l=1}^{n} \sum_{c \in \mathcal{C}_l} \text{Compute}_l(c) \cdot x_{l,c} + \sum_{l=1}^{n-1} \sum_{c_i \in \mathcal{C}_l} \sum_{c_j \in \mathcal{C}_{l+1}} \text{Redist}_{l \to l+1}(c_i, c_j) \cdot y_{l,c_i,c_j}
+}
+\end{equation}
+
+The objective has two components:
+\begin{enumerate}
+    \item \textbf{Compute Cost}: The computation cost of each layer under its chosen partition
+    \item \textbf{Redistribution Cost}: The data movement cost between adjacent layers due to partition mismatches
+\end{enumerate}
+
+%==============================================================================
+\section{Compute Cost Model}
+%==============================================================================
+
+\subsection{Base Computation}
+
+The base MAC (Multiply-Accumulate) operations for layer $l$:
+
+\begin{equation}
+\text{MACs}_l = N \times C_l \times K_l \times H_l \times W_l \times R_l \times S_l
+\end{equation}
+
+\subsection{Per-Node Workload}
+
+With hybrid partition $c$, the work is distributed:
+
+\begin{equation}
+\text{MACs\_per\_node}_l(c) = \frac{\text{MACs}_l}{\prod_{d \in \mathcal{D}} (p_d^h \times p_d^w)}
+\end{equation}
+
+\subsection{Overhead Factors}
+
+\subsubsection{INPP Reduction Overhead}
+
+When input channels are partitioned, partial sums must be reduced:
+
+\begin{equation}
+\alpha_{\text{INPP}}(c) = 1 + 0.1 \times (p_{\text{INPP}} - 1)
+\end{equation}
+
+where $p_{\text{INPP}} = p_{\text{INPP}}^h \times p_{\text{INPP}}^w$.
+
+\subsubsection{OFMP Halo Overhead}
+
+Spatial partitioning requires halo data exchange at boundaries:
+
+\begin{equation}
+\alpha_{\text{OFMP}}(c) = 1 + 0.05 \times \frac{R_l - 1}{\max(H_l / p_{\text{OFMP}}^h, 1)} + 0.05 \times \frac{S_l - 1}{\max(W_l / p_{\text{OFMP}}^w, 1)}
+\end{equation}
+
+\subsection{Final Compute Cost}
+
+\begin{equation}
+\boxed{\text{Compute}_l(c) = \text{MACs\_per\_node}_l(c) \times \alpha_{\text{INPP}}(c) \times \alpha_{\text{OFMP}}(c)}
+\end{equation}
+
+%==============================================================================
+\section{Redistribution Cost Model}
+%==============================================================================
+
+This is the \textbf{key contribution} of our model. We consider ALL dimension propagations:
+
+\begin{equation}
+\boxed{\text{Redist}_{l \to l+1}(c_i, c_j) = R_K(c_i, c_j) + R_{HW}(c_i, c_j) + R_N(c_i, c_j) + R_C(c_i)}
+\end{equation}
+
+\subsection{Output Data Size}
+
+The output data of layer $l$ that needs to be transferred:
+
+\begin{equation}
+O_l = N \times K_l \times H_l \times W_l
+\end{equation}
+
+\subsection{K $\rightarrow$ C Propagation Cost ($R_K$)}
+
+\subsubsection{The Propagation Problem}
+
+Layer $l$'s output channel partition (OUTP) determines how its output data is distributed. Layer $l+1$ receives this as input, where the output channels of layer $l$ become the input channels of layer $l+1$:
+
+\begin{equation}
+C_{l+1} = K_l
+\end{equation}
+
+If layer $l+1$'s input channel partition (INPP) differs from layer $l$'s output channel partition (OUTP), \textbf{data redistribution is required}.
+
+\subsubsection{Cost Formulation}
+
+Let $k = p_{\text{OUTP}}^{(l)}$ be layer $l$'s K partition factor, and $p = p_{\text{INPP}}^{(l+1)}$ be layer $l+1$'s C partition factor.
+
+\begin{equation}
+R_K(c_i, c_j) = \begin{cases}
+0 & \text{if } k = 1 \text{ and } p = 1 \text{ (no partition)} \\
+O_l \times \frac{p-1}{p} & \text{if } k = 1 \text{ and } p > 1 \text{ (Scatter)} \\
+0 & \text{if } k > 1 \text{ and } p = k \text{ (Perfect match)} \\
+O_l \times \frac{k-1}{k} & \text{if } k > 1 \text{ and } p = 1 \text{ (All-Gather)} \\
+O_l \times 1.5 \times (1 - \frac{1}{\max(k,p)}) & \text{if } k > 1 \text{ and } p \neq k \text{ (All-to-All)}
+\end{cases}
+\end{equation}
+
+\begin{table}[h]
+\centering
+\caption{K$\rightarrow$C Redistribution Patterns}
+\begin{tabular}{cccp{6cm}}
+\toprule
+\textbf{$k$ (OUTP$^{(l)}$)} & \textbf{$p$ (INPP$^{(l+1)}$)} & \textbf{Pattern} & \textbf{Description} \\
+\midrule
+1 & 1 & None & Data is complete, no partition \\
+1 & $>1$ & Scatter & Distribute complete data to partitioned nodes \\
+$>1$ & $=k$ & Match & Perfect alignment, data naturally flows \\
+$>1$ & 1 & All-Gather & Collect distributed data to each node \\
+$>1$ & $\neq k$ & All-to-All & General redistribution \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Spatial Propagation Cost ($R_{HW}$)}
+
+\subsubsection{The Propagation Problem}
+
+Spatial partitioning (OFMP) affects how output feature maps are distributed. If adjacent layers have different spatial partitions, data must be redistributed.
+
+\subsubsection{Spatial Mismatch Cost}
+
+Let $(h_l, w_l) = (p_{\text{OFMP}}^{h,(l)}, p_{\text{OFMP}}^{w,(l)})$ and $(h_{l+1}, w_{l+1})$ similarly for layer $l+1$.
+
+\begin{equation}
+R_{\text{spatial}} = \begin{cases}
+0 & \text{if } (h_l, w_l) = (h_{l+1}, w_{l+1}) \\
+O_l \times 1.5 \times (1 - \frac{1}{\max(n_l, n_{l+1})}) & \text{otherwise}
+\end{cases}
+\end{equation}
+
+where $n_l = h_l \times w_l$ and $n_{l+1} = h_{l+1} \times w_{l+1}$.
+
+\subsubsection{Halo Exchange Cost}
+
+Even with matching spatial partitions, convolution layers require \textbf{halo exchange}---boundary data from neighboring tiles:
+
+\begin{equation}
+\text{Halo\_data} = N \times C_{l+1} \times \left[ (R_{l+1} - 1) \times W_{l+1} + (S_{l+1} - 1) \times H_{l+1} \right]
+\end{equation}
+
+\begin{equation}
+R_{\text{halo}} = \text{Halo\_data} \times 0.5
+\end{equation}
+
+\subsubsection{Total Spatial Cost}
+
+\begin{equation}
+\boxed{R_{HW}(c_i, c_j) = R_{\text{spatial}} + R_{\text{halo}}}
+\end{equation}
+
+\subsection{Batch Propagation Cost ($R_N$)}
+
+Batch partitioning is typically consistent across the network, but if it differs:
+
+\begin{equation}
+R_N(c_i, c_j) = \begin{cases}
+0 & \text{if } p_{\text{BATP}}^{(l)} = p_{\text{BATP}}^{(l+1)} \\
+O_l \times 1.5 \times (1 - \frac{1}{\max(b_l, b_{l+1})}) & \text{otherwise}
+\end{cases}
+\end{equation}
+
+where $b_l = p_{\text{BATP}}^{h,(l)} \times p_{\text{BATP}}^{w,(l)}$.
+
+\subsection{INPP Reduction Cost ($R_C$)}
+
+When layer $l$ uses input channel partitioning (INPP), each node computes partial sums that must be combined via \textbf{All-Reduce}:
+
+\begin{equation}
+\boxed{R_C(c_i) = \begin{cases}
+0 & \text{if } p_{\text{INPP}}^{(l)} = 1 \\
+O_l \times 2 \times \frac{p - 1}{p} & \text{if } p_{\text{INPP}}^{(l)} = p > 1
+\end{cases}}
+\end{equation}
+
+The factor of 2 comes from Ring All-Reduce, which requires approximately $2 \times \frac{n-1}{n}$ data volume transfer.
+
+%==============================================================================
+\section{Communication Cost Coefficients}
+%==============================================================================
+
+\begin{table}[h]
+\centering
+\caption{Communication Operation Costs}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Operation} & \textbf{Coefficient} & \textbf{Effective Data Transfer} \\
+\midrule
+All-Gather & 1.0 & $(n-1)/n \times \text{data}$ \\
+Scatter & 1.0 & $(n-1)/n \times \text{data}$ \\
+All-to-All & 1.5 & $(1 - 1/n) \times \text{data}$ \\
+All-Reduce (Ring) & 2.0 & $2(n-1)/n \times \text{data}$ \\
+Halo Exchange & 0.5 & Point-to-point, minimal \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+%==============================================================================
+\section{Complete ILP Model Summary}
+%==============================================================================
+
+\subsection{Variables}
+
+\begin{align}
+&\text{Primary:} & x_{l,c} &\in \{0, 1\} & &\forall l \in \{1,...,n\}, c \in \mathcal{C}_l \\
+&\text{Auxiliary:} & y_{l,c_i,c_j} &\in [0, 1] & &\forall l \in \{1,...,n-1\}, c_i \in \mathcal{C}_l, c_j \in \mathcal{C}_{l+1}
+\end{align}
+
+\subsection{Constraints}
+
+\begin{align}
+&\text{Selection:} & \sum_{c \in \mathcal{C}_l} x_{l,c} &= 1 & &\forall l \\
+&\text{Linearization:} & y_{l,c_i,c_j} &\leq x_{l,c_i} & &\forall l, c_i, c_j \\
+& & y_{l,c_i,c_j} &\leq x_{l+1,c_j} & &\forall l, c_i, c_j \\
+& & y_{l,c_i,c_j} &\geq x_{l,c_i} + x_{l+1,c_j} - 1 & &\forall l, c_i, c_j
+\end{align}
+
+\subsection{Objective}
+
+\begin{equation}
+\min \underbrace{\sum_{l} \sum_{c} \text{Compute}_l(c) \cdot x_{l,c}}_{\text{Computation Cost}} + \underbrace{\sum_{l} \sum_{c_i} \sum_{c_j} \text{Redist}_{l \to l+1}(c_i, c_j) \cdot y_{l,c_i,c_j}}_{\text{Redistribution Cost}}
+\end{equation}
+
+%==============================================================================
+\section{Complexity Analysis}
+%==============================================================================
+
+\subsection{Variable Count}
+
+Let $n$ be the number of layers and $m$ be the maximum number of partition choices per layer.
+
+\begin{itemize}
+    \item Primary variables: $O(nm)$
+    \item Auxiliary variables: $O(nm^2)$
+    \item \textbf{Total variables}: $O(nm^2)$
+\end{itemize}
+
+\subsection{Constraint Count}
+
+\begin{itemize}
+    \item Selection constraints: $O(n)$
+    \item Linearization constraints: $O(nm^2)$
+    \item \textbf{Total constraints}: $O(nm^2)$
+\end{itemize}
+
+\subsection{Practical Considerations}
+
+For a 4$\times$4 node array (16 nodes):
+\begin{itemize}
+    \item Typical partition choices per layer: 30--100
+    \item For a 50-layer network: $\sim$5000 primary variables, $\sim$250,000 auxiliary variables
+    \item Modern ILP solvers (Gurobi, CPLEX) handle this efficiently
+\end{itemize}
+
+%==============================================================================
+\section{Dynamic Programming Alternative}
+%==============================================================================
+
+When ILP solvers are unavailable, the problem can be solved optimally via Dynamic Programming due to its \textbf{chain structure}:
+
+\begin{equation}
+\text{DP}[l][c] = \min_{c' \in \mathcal{C}_{l-1}} \left\{ \text{DP}[l-1][c'] + \text{Compute}_l(c) + \text{Redist}_{l-1 \to l}(c', c) \right\}
+\end{equation}
+
+\textbf{Complexity}: $O(n \cdot m^2)$ time, $O(n \cdot m)$ space.
+
+%==============================================================================
+\section{Alignment with nn\_dataflow}
+%==============================================================================
+
+\subsection{PartitionScheme Mapping}
+
+\begin{verbatim}
+# nn_dataflow PartitionScheme
+from nn_dataflow.core import PartitionScheme, PhyDim2
+import nn_dataflow.core.parallel_enum as pe
+
+scheme = PartitionScheme(
+    order=(pe.OFMP, pe.BATP, pe.OUTP, pe.INPP),
+    pdims=(
+        PhyDim2(2, 2),  # OFMP: 2x2 = 4-way spatial
+        PhyDim2(2, 2),  # BATP: 2x2 = 4-way batch  
+        PhyDim2(1, 1),  # OUTP: no partition
+        PhyDim2(1, 1),  # INPP: no partition
+    )
+)
+# Total: 4 * 4 * 1 * 1 = 16 nodes
+\end{verbatim}
+
+\subsection{Equivalent HybridPartitionChoice}
+
+\begin{verbatim}
+# Our ILP model representation
+choice = HybridPartitionChoice({
+    PartDim.OUTP: (1, 1),   # K partition
+    PartDim.OFMP: (2, 2),   # Spatial partition
+    PartDim.BATP: (2, 2),   # Batch partition
+    PartDim.INPP: (1, 1),   # Input channel partition
+})
+# Total: 1*1 * 2*2 * 2*2 * 1*1 = 16 nodes
+\end{verbatim}
+
+%==============================================================================
+\section{Conclusion}
+%==============================================================================
+
+This document presents a complete ILP formulation for global partition optimization that:
+
+\begin{enumerate}
+    \item \textbf{Supports hybrid partitioning}: Multiple dimensions can be partitioned simultaneously
+    \item \textbf{Models all propagations}: K$\rightarrow$C, spatial, batch, and INPP reduction
+    \item \textbf{Provides optimal solutions}: Via ILP or DP algorithms
+    \item \textbf{Aligns with nn\_dataflow}: Direct mapping to PartitionScheme
+\end{enumerate}
+
+The key insight is that partition decisions form a \textbf{graph optimization problem} where the optimal solution minimizes both computation cost and inter-layer redistribution cost.
+
+\end{document}
