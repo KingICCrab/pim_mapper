@@ -1,3 +1,0 @@
-Method,Row_Buffer_Size,Max_Row_Activations,Improvement_Factor
-Ablated_ILP,512,98856,1.0x
-Full_ILP,512,26736,3.70x
