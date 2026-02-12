@@ -1,0 +1,9 @@
+Workload,Method,Input_Acts,Weight_Acts,Output_Acts,Max_Acts,Total_Acts,Improvement_vs_WS(%),Improvement_vs_OS(%)
+GPT3_Attn_QKV,Weight Stationary,24603,16384,64,24603,41051,0.00,-200.33
+GPT3_Attn_QKV,Output Stationary,1,64,8192,8192,8257,66.70,0.00
+GPT3_Attn_QKV,ILP,N/A,N/A,N/A,N/A,N/A,N/A,N/A
+GPT3_Attn_QKV,Lemon,N/A,N/A,N/A,N/A,N/A,N/A,N/A
+LLaMA_70B_FFN,Weight Stationary,65653,65536,128,65653,131317,0.00,-100.36
+LLaMA_70B_FFN,Output Stationary,1,256,32768,32768,33025,50.09,0.00
+LLaMA_70B_FFN,ILP,N/A,N/A,N/A,N/A,N/A,N/A,N/A
+LLaMA_70B_FFN,Lemon,N/A,N/A,N/A,N/A,N/A,N/A,N/A
